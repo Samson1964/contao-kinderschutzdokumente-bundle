@@ -91,7 +91,32 @@ class RegelnTest extends TestCase
 	}
 
 	/**
-	 * Ablaufmail ab dem Tag nach dem letzten gültigen Tag, höchstens 14 Tage lang.
+	 * Die Vor-Ablauf-Mail beginnt genau am Tag, an dem der Vorlauf unterschritten wird.
+	 *
+	 * Bei 56 Tagen Vorlauf und dem Stichtag 15.10.2026 liegt die Grenze auf dem
+	 * 10.12.2026: Ein Nachweis, der am 09.12. endet, ist fällig, einer mit
+	 * Ende am 10.12. noch nicht. Der Test nagelt damit den strengen Vergleich
+	 * („kleiner als“) fest — ein „kleiner oder gleich“ würde die Mail einen Tag
+	 * zu früh auslösen und diesen Test rot machen.
+	 */
+	public function testErinnerungVorAblaufGrenze(): void
+	{
+		$plan = new Erinnerungsplan(56, 42);
+		$heute = strtotime('2026-10-15 00:00');
+
+		$amLetztenFaelligenTag = $plan->ablauf(array($this->geprueft('2026-12-09')), $heute);
+		$this->assertNotNull($amLetztenFaelligenTag);
+		$this->assertSame(Erinnerungsplan::VOR_ABLAUF, $amLetztenFaelligenTag[0]);
+
+		$this->assertNull($plan->ablauf(array($this->geprueft('2026-12-10')), $heute));
+	}
+
+	/**
+	 * Ablaufmail ab dem Tag nach dem letzten gültigen Tag, bis 14 Tage nach diesem Ablauftag.
+	 *
+	 * Bei „gültig bis 14.10.“ ist der Ablauftag der 15.10.; die Ablaufmail geht
+	 * vom 15.10. bis einschließlich 29.10. (also 14 Tage nach dem Ablauftag),
+	 * am 30.10. nicht mehr.
 	 */
 	public function testErinnerungAblauf(): void
 	{
