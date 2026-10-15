@@ -182,6 +182,11 @@ class NachweisListener
 	 * noch nicht gespeichert sind. Für einen neuen Prüfvermerk kommt die
 	 * Dokumentart aus dem Formular, sonst aus der Datenbank.
 	 *
+	 * In „Mehrere bearbeiten“ hängt Contao an jeden Feldnamen die ID des
+	 * Datensatzes an (status_4, ablehnungsgrund_4). Die Endung wird deshalb
+	 * am Eingabenamen dieses Felds abgelesen und an die anderen Felder
+	 * gehängt; in der Prüfmaske und beim Überschreiben ist sie leer.
+	 *
 	 * @param mixed         $wert Der gewählte Status
 	 * @param DataContainer $dc   Der Data Container
 	 *
@@ -192,9 +197,10 @@ class NachweisListener
 	#[AsCallback(table: 'tl_kinderschutz', target: 'fields.status.save')]
 	public function statusPruefen(mixed $wert, DataContainer $dc): mixed
 	{
-		$artId = (int) (Input::post('dokumentart') ?: ($this->nachweise->zeile((int) $dc->id)['dokumentart'] ?? 0));
+		$endung = substr((string) $dc->inputName, \strlen((string) $dc->field));
+		$artId = (int) (Input::post('dokumentart'.$endung) ?: ($this->nachweise->zeile((int) $dc->id)['dokumentart'] ?? 0));
 		$art = $this->arten->eine($artId);
-		$fehler = Pruefung::eingabefehler((string) $wert, (string) Input::post('ablehnungsgrund'), (string) Input::post('einschlaegig'), null !== $art && $art->einschlaegigAbfragen);
+		$fehler = Pruefung::eingabefehler((string) $wert, (string) Input::post('ablehnungsgrund'.$endung), (string) Input::post('einschlaegig'.$endung), null !== $art && $art->einschlaegigAbfragen);
 
 		if (null !== $fehler) {
 			throw new \RuntimeException($GLOBALS['TL_LANG']['MSC']['kinderschutz_be'][$fehler] ?? $fehler);
