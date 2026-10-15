@@ -92,6 +92,11 @@ class Papierkorb
 	 *
 	 * @return bool true, wenn eine Datei gelöscht wurde; false, wenn der
 	 *              Nachweis keine Datei im Papierkorb hat
+	 *
+	 * @throws \RuntimeException Wenn die Datei sich nicht löschen lässt. Der
+	 *                           Datensatz bleibt dann unverändert. Nur die
+	 *                           Sammelläufe (leeren(), faelligeLoeschen())
+	 *                           fangen das je Eintrag ab.
 	 */
 	public function endgueltigLoeschen(int $id, int $jetzt): bool
 	{
@@ -111,9 +116,12 @@ class Papierkorb
 	/**
 	 * Leert den ganzen Papierkorb.
 	 *
+	 * Dateien, die sich nicht löschen lassen, werden übersprungen und
+	 * protokolliert (siehe loescheAlle()).
+	 *
 	 * @param int $jetzt Aktueller Zeitpunkt
 	 *
-	 * @return int Anzahl gelöschter Dateien
+	 * @return int Anzahl tatsächlich gelöschter Dateien
 	 */
 	public function leeren(int $jetzt): int
 	{
@@ -123,9 +131,12 @@ class Papierkorb
 	/**
 	 * Löscht alle Dateien, deren Frist abgelaufen ist (täglicher Cronjob).
 	 *
+	 * Dateien, die sich nicht löschen lassen, werden übersprungen und
+	 * protokolliert (siehe loescheAlle()); der nächste Lauf versucht sie erneut.
+	 *
 	 * @param int $jetzt Aktueller Zeitpunkt
 	 *
-	 * @return int Anzahl gelöschter Dateien
+	 * @return int Anzahl tatsächlich gelöschter Dateien
 	 */
 	public function faelligeLoeschen(int $jetzt): int
 	{
@@ -168,17 +179,35 @@ class Papierkorb
 	/**
 	 * Löscht eine Liste von Dateien endgültig.
 	 *
+	 * Die Schleife ist gegen Fehler einzelner Dateien geschützt: Lässt sich
+	 * eine Datei nicht löschen (die Ablage wirft dann eine RuntimeException,
+	 * etwa bei einer gesperrten Datei unter Windows), wird das für diesen
+	 * Eintrag protokolliert und mit dem nächsten weitergemacht. Sonst bliebe
+	 * ein einziger hängender Eintrag Nacht für Nacht vorn in der Liste, und
+	 * der Cronjob käme an die dahinter nie heran. Der gescheiterte Eintrag
+	 * bleibt unverändert im Papierkorb und ist beim nächsten Lauf wieder dran.
+	 *
+	 * Seiteneffekte: löscht Dateien vom Datenträger, ändert die Datensätze
+	 * (siehe endgueltigLoeschen()) und schreibt je Fehler einen Eintrag ins
+	 * Systemprotokoll. Der Eintrag nennt nur die Nachweis-ID, weder den Pfad
+	 * noch den Text der Ausnahme, denn der enthält den Pfad. Andere Fehler
+	 * als eine RuntimeException (etwa der Datenbank) werden nicht verschluckt.
+	 *
 	 * @param list<int> $ids   IDs der Nachweise
 	 * @param int       $jetzt Aktueller Zeitpunkt
 	 *
-	 * @return int Anzahl gelöschter Dateien
+	 * @return int Anzahl tatsächlich gelöschter Dateien, ohne die gescheiterten
 	 */
 	private function loescheAlle(array $ids, int $jetzt): int
 	{
 		$anzahl = 0;
 
 		foreach ($ids as $id) {
-			$anzahl += $this->endgueltigLoeschen($id, $jetzt) ? 1 : 0;
+			try {
+				$anzahl += $this->endgueltigLoeschen($id, $jetzt) ? 1 : 0;
+			} catch (\RuntimeException) {
+				$this->protokoll->error(sprintf('Kinderschutz: Datei von Nachweis ID %d konnte nicht endgültig gelöscht werden', $id));
+			}
 		}
 
 		return $anzahl;

@@ -153,5 +153,6 @@ $GLOBALS['TL_LANG']['MSC']['kinderschutz_be'] = array
 	'ungueltigesToken' => 'Die Aktion war nicht bestätigt. Bitte erneut auslösen.',
 	'grundFehlt'      => 'Bitte eine Begründung für die Ablehnung angeben; sie geht an die Person.',
 	'einschlaegigFehlt' => 'Bitte angeben, ob einschlägige Einträge vorliegen.',
+	'mailGescheitert' => 'Die Ablehnung ist gespeichert, aber die Mail an die Person konnte nicht verschickt werden. Bitte die Person direkt informieren.',
 	'nurHauptadmin'   => 'Die Prüferfreigabe kann nur der Hauptadmin ändern.',
 );

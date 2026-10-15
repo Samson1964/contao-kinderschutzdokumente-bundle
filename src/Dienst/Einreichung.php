@@ -25,9 +25,13 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 /**
  * Nimmt eine Einreichung aus dem Frontend entgegen.
  *
- * Ablauf: Dokumentart und Datum prüfen, Datei prüfen und ablegen, eine noch
- * ungeprüfte Einreichung derselben Art ersetzen (Datei in den Papierkorb),
- * Nachweis anlegen, Prüfer benachrichtigen.
+ * Ablauf: Dokumentart und Datum prüfen, Datei prüfen und ablegen, Nachweis
+ * anlegen, eine noch ungeprüfte Einreichung derselben Art ersetzen (Datei in
+ * den Papierkorb), Prüfer benachrichtigen.
+ *
+ * Die Reihenfolge schützt vor halben Zuständen: Scheitert das Anlegen des
+ * Nachweises, wird die eben abgelegte Datei wieder gelöscht und die alte
+ * Einreichung bleibt unberührt. Ersetzt wird erst, wenn die neue gespeichert ist.
  */
 class Einreichung
 {
@@ -57,6 +61,13 @@ class Einreichung
 
 	/**
 	 * Nimmt eine Datei entgegen.
+	 *
+	 * Seiteneffekte: legt die Datei in der Ablage ab, legt einen Nachweis an,
+	 * setzt wartende Einreichungen derselben Art auf „ersetzt“ und deren
+	 * Dateien in den Papierkorb, schreibt ins Systemprotokoll und schickt den
+	 * Prüfern eine Mail. Scheitert das Anlegen mit einer Ausnahme, ist die
+	 * Datei wieder aus der Ablage entfernt, die Ausnahme geht unverändert an
+	 * den Aufrufer, und bestehende Einreichungen bleiben wie sie waren.
 	 *
 	 * @param int          $mitglied          ID des angemeldeten Mitglieds
 	 * @param int          $dokumentart       ID der Dokumentart aus dem Formular
@@ -96,27 +107,39 @@ class Einreichung
 		$groesse = (int) $datei->getSize();
 		// Nur zur Anzeige im Backend; gespeichert wird unter einem Zufallsnamen
 		$originalname = mb_substr((string) preg_replace('/[^\pL\pN ()._-]+/u', '_', $datei->getClientOriginalName()), 0, 255);
+		// Die wartenden Einreichungen müssen vor dem Anlegen eingesammelt werden:
+		// Der neue Nachweis hat selbst den Status „eingereicht“ und stünde danach
+		// in dieser Liste.
+		$alte = $this->nachweise->wartende($mitglied, $dokumentart);
 		$relativ = $this->ablage->speichere($datei, $mitglied, $endung);
 
-		foreach ($this->nachweise->wartende($mitglied, $dokumentart) as $alt) {
+		try {
+			$id = $this->nachweise->anlegen(array(
+				'tstamp'            => $jetzt,
+				'member'            => $mitglied,
+				'dokumentart'       => $dokumentart,
+				'status'            => Nachweis::EINGEREICHT,
+				'verarbeitet'       => Nachweis::EINGEREICHT,
+				'quelle'            => 'frontend',
+				'datei'             => $relativ,
+				'dateiname'         => $originalname,
+				'dateityp'          => (string) array_search($endung, UploadPruefer::TYPEN, true),
+				'dateigroesse'      => $groesse,
+				'hochgeladenAm'     => $jetzt,
+				'ausstellungsdatum' => Kalender::tag($ausstellungsdatum),
+			));
+		} catch (\Throwable $fehler) {
+			// Ohne Datensatz fände niemand die Datei mehr, sie bliebe für immer liegen
+			$this->ablage->loesche($relativ);
+
+			throw $fehler;
+		}
+
+		// Erst jetzt, da die neue Einreichung sicher gespeichert ist, werden die alten ersetzt
+		foreach ($alte as $alt) {
 			$this->nachweise->aendern($alt, array('status' => Nachweis::ERSETZT, 'verarbeitet' => Nachweis::ERSETZT));
 			$this->papierkorb->hineinlegen($alt, $jetzt);
 		}
-
-		$id = $this->nachweise->anlegen(array(
-			'tstamp'            => $jetzt,
-			'member'            => $mitglied,
-			'dokumentart'       => $dokumentart,
-			'status'            => Nachweis::EINGEREICHT,
-			'verarbeitet'       => Nachweis::EINGEREICHT,
-			'quelle'            => 'frontend',
-			'datei'             => $relativ,
-			'dateiname'         => $originalname,
-			'dateityp'          => (string) array_search($endung, UploadPruefer::TYPEN, true),
-			'dateigroesse'      => $groesse,
-			'hochgeladenAm'     => $jetzt,
-			'ausstellungsdatum' => Kalender::tag($ausstellungsdatum),
-		));
 
 		$this->protokoll->info(sprintf('Kinderschutz: Mitglied ID %d hat %s eingereicht (Nachweis ID %d)', $mitglied, $art->name, $id));
 

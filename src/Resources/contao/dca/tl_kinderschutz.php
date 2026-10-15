@@ -28,6 +28,11 @@ use Contao\DC_Table;
  * Die Felder ohne inputType (Datei, Zeitpunkte, Merker) setzt nur der Code;
  * angezeigt werden sie im Kopf der Prüfmaske (Feld „vorschau“).
  *
+ * Das Feld „gueltigkeit“ hält die Monatszahl der Dokumentart fest, die beim
+ * Prüfen galt (0 = unbegrenzt). „Gültig bis“ wird daraus gerechnet, damit eine
+ * spätere Änderung der Monatszahl an der Dokumentart bestehende Nachweise nicht
+ * verschiebt.
+ *
  * Kein Feld trägt „search“: Die Backend-Suche von Contao 5 würde solche Felder
  * (etwa interne Bemerkungen) in ihren Index übernehmen.
  */
@@ -211,6 +216,10 @@ $GLOBALS['TL_DCA']['tl_kinderschutz'] = array
 		'gueltigBis' => array
 		(
 			'sql' => 'int(10) unsigned NULL',
+		),
+		'gueltigkeit' => array
+		(
+			'sql' => "smallint(5) unsigned NOT NULL default '0'",
 		),
 		'papierkorbSeit' => array
 		(
