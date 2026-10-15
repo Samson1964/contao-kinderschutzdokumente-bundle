@@ -17,8 +17,9 @@ use Schachbulle\ContaoKinderschutzdokumenteBundle\Backend\UebersichtModul;
  *
  * Jedes Modul trägt „disablePermissionChecks“: Den Zugang regelt allein die
  * Prüferfreigabe (Dienst\Zugang), nicht die Modulrechte der Benutzergruppen.
- * Für Unberechtigte blendet EventListener\MenueListener die Gruppe aus, und
- * jede Maske, jede Aktion und die Datei-Route prüfen selbst.
+ * Weil Contao eine Gruppe nur bei Modulrechten baut, ergänzt
+ * EventListener\MenueListener sie für Berechtigte und blendet sie für
+ * Unberechtigte aus; jede Maske, jede Aktion und die Datei-Route prüfen selbst.
  *
  * Der Gruppenschlüssel landet als CSS-Klasse im Markup; der Anzeigename kommt
  * aus TL_LANG['MOD']['kinderschutz'].
