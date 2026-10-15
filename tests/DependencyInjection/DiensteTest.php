@@ -21,6 +21,7 @@ use Schachbulle\ContaoKinderschutzdokumenteBundle\Backend\PapierkorbAktionen;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Backend\Uebersicht;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Backend\UebersichtModul;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Controller\DateiController;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\Controller\FrontendModule\UnterlagenController;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Cron\TaeglicherCron;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\DependencyInjection\ContaoKinderschutzdokumenteExtension;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Regeln\Berechtigung;
@@ -67,6 +68,7 @@ class DiensteTest extends TestCase
 		$this->assertFalse($container->has(UebersichtModul::class));
 		$this->assertFalse($container->has(Nachweis::class));
 
+		$this->assertTrue($container->has(UnterlagenController::class));
 		$this->assertTrue($container->has(TaeglicherCron::class));
 		$this->assertSame(1, $container->getParameter('contao_kinderschutzdokumente.hauptadmin'));
 		$this->assertSame(10, $container->getParameter('contao_kinderschutzdokumente.upload_max_mb'));

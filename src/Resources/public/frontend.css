@@ -1,0 +1,81 @@
+/*
+ * Kinderschutzdokumente-Bundle: Frontend-Modul „Meine Unterlagen“.
+ *
+ * Bewusst zurückhaltend, damit das Theme der Seite trägt. Der Stand jeder
+ * Unterlage steht als Text da; die Randfarbe ist nur eine Zugabe.
+ */
+.ks-liste {
+	list-style: none;
+	margin: 0 0 1.5em;
+	padding: 0;
+}
+
+.ks-art,
+.ks-veranstaltung {
+	border-left: 4px solid #999;
+	padding: .6em .9em;
+	margin-bottom: .8em;
+	background: rgba(0, 0, 0, .03);
+}
+
+.ks-gueltig { border-left-color: #2e7d32; }
+.ks-laeuftAb { border-left-color: #b8860b; }
+.ks-eingereicht { border-left-color: #1565c0; }
+.ks-fehlt, .ks-abgelehnt, .ks-abgelaufen, .ks-ruecksprache { border-left-color: #c62828; }
+
+.ks-kopf {
+	display: flex;
+	flex-wrap: wrap;
+	gap: .5em 1em;
+	align-items: baseline;
+}
+
+.ks-pflicht {
+	font-size: .8em;
+	text-transform: uppercase;
+	letter-spacing: .05em;
+}
+
+.ks-status {
+	margin-left: auto;
+	font-weight: bold;
+}
+
+.ks-text {
+	margin: .4em 0;
+}
+
+.ks-meldung {
+	padding: .6em .9em;
+	background: #e8f5e9;
+	border-left: 4px solid #2e7d32;
+}
+
+.ks-fehler {
+	padding: .6em .9em;
+	background: #ffebee;
+	border-left: 4px solid #c62828;
+}
+
+.ks-formular {
+	display: flex;
+	flex-wrap: wrap;
+	gap: .4em .8em;
+	align-items: center;
+	margin-top: .6em;
+}
+
+.ks-formular label {
+	flex-basis: 100%;
+	margin-top: .3em;
+}
+
+.ks-formular.ks-zeile label {
+	flex-basis: auto;
+}
+
+@media (min-width: 600px) {
+	.ks-formular label {
+		flex-basis: auto;
+	}
+}

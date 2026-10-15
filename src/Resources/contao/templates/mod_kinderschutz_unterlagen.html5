@@ -1,0 +1,104 @@
+<?php
+
+use Contao\Date;
+use Contao\StringUtil;
+
+$this->extend('block_unsearchable');
+?>
+
+<?php $this->block('content'); ?>
+<?php $t = $this->texte; ?>
+
+<?php if ('' !== $this->hinweis): ?>
+  <p class="ks-hinweis"><?= $this->hinweis ?></p>
+<?php else: ?>
+
+  <?php foreach ($this->meldungen as $meldung): ?>
+    <p class="ks-meldung" role="status"><?= StringUtil::specialchars($meldung) ?></p>
+  <?php endforeach; ?>
+
+  <h2 class="ks-ueberschrift"><?= $t['unterlagen'] ?></h2>
+  <ul class="ks-liste">
+    <?php foreach ($this->arten as $art): ?>
+      <?php $zelle = $this->zellen[$art->id]; ?>
+      <?php // Das Prüfergebnis soll auch im Quelltext nicht stehen ?>
+      <li class="ks-art ks-<?= 'beanstandet' === $zelle->status ? 'ruecksprache' : $zelle->status ?>">
+        <div class="ks-kopf">
+          <strong><?= StringUtil::specialchars($art->name) ?></strong>
+          <?php if ($art->pflicht): ?><span class="ks-pflicht"><?= $t['pflicht'] ?></span><?php endif; ?>
+          <span class="ks-status"><?= $GLOBALS['TL_LANG']['MSC']['kinderschutz_status_frontend'][$zelle->status] ?></span>
+        </div>
+        <?php if ('' !== $art->hinweis): ?><p class="ks-text"><?= nl2br(StringUtil::specialchars($art->hinweis)) ?></p><?php endif; ?>
+        <?php if (null !== $zelle->massgeblich && $zelle->istGueltig()): ?>
+          <p class="ks-text"><?= null === $zelle->massgeblich->gueltigBis ? $t['unbegrenzt'] : sprintf($t['gueltigBis'], Date::parse('d.m.Y', $zelle->massgeblich->gueltigBis)) ?></p>
+        <?php endif; ?>
+        <?php if ('abgelehnt' === $zelle->status && null !== $zelle->letzter && '' !== $zelle->letzter->ablehnungsgrund): ?>
+          <p class="ks-text ks-grund"><?= sprintf($t['grund'], nl2br(StringUtil::specialchars($zelle->letzter->ablehnungsgrund))) ?></p>
+        <?php endif; ?>
+        <?php if ($zelle->wartet() && 'eingereicht' !== $zelle->status): ?><p class="ks-text"><?= $t['wartet'] ?></p><?php endif; ?>
+        <?php if (isset($this->fehler[$art->id])): ?><p class="ks-fehler" role="alert"><?= StringUtil::specialchars($this->fehler[$art->id]) ?></p><?php endif; ?>
+
+        <form method="post" enctype="multipart/form-data" class="ks-formular">
+          <input type="hidden" name="FORM_SUBMIT" value="<?= $this->formular ?>_upload">
+          <input type="hidden" name="REQUEST_TOKEN" value="<?= StringUtil::specialchars($this->requestToken) ?>">
+          <input type="hidden" name="dokumentart" value="<?= $art->id ?>">
+          <label for="ks-datei-<?= $art->id ?>"><?= sprintf($t['datei'], $this->hoechstgroesse) ?></label>
+          <input type="file" name="datei" id="ks-datei-<?= $art->id ?>" accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png" required>
+          <label for="ks-datum-<?= $art->id ?>"><?= $t['ausgestellt'] ?></label>
+          <input type="date" name="ausstellungsdatum" id="ks-datum-<?= $art->id ?>" max="<?= $this->heute ?>" required>
+          <button type="submit"><?= $zelle->istGueltig() ? $t['erneuern'] : $t['hochladen'] ?></button>
+        </form>
+      </li>
+    <?php endforeach; ?>
+  </ul>
+
+  <h2 class="ks-ueberschrift"><?= $t['veranstaltungen'] ?></h2>
+  <?php if (isset($this->fehler[0])): ?><p class="ks-fehler" role="alert"><?= StringUtil::specialchars($this->fehler[0]) ?></p><?php endif; ?>
+  <ul class="ks-liste">
+    <?php foreach ($this->eigene as $eintrag): ?>
+      <?php $v = $eintrag['veranstaltung']; ?>
+      <li class="ks-veranstaltung <?= array() === $eintrag['fehlend'] ? 'ks-gueltig' : 'ks-fehlt' ?>">
+        <div class="ks-kopf">
+          <strong><?= StringUtil::specialchars($v['name']) ?></strong>
+          <span><?= Date::parse('d.m.Y', (int) $v['startDate']) ?><?= (int) $v['endDate'] > 0 ? ' – '.Date::parse('d.m.Y', (int) $v['endDate']) : '' ?></span>
+        </div>
+        <p class="ks-text">
+          <?= array() === $eintrag['fehlend'] ? $t['vollstaendig'] : sprintf($t['esFehlt'], StringUtil::specialchars(implode(', ', array_map(static fn ($art) => $art->name, $eintrag['fehlend'])))) ?>
+        </p>
+        <?php if ('frontend' === $v['quelle']): ?>
+          <form method="post" class="ks-formular">
+            <input type="hidden" name="FORM_SUBMIT" value="<?= $this->formular ?>_veranstaltung">
+            <input type="hidden" name="REQUEST_TOKEN" value="<?= StringUtil::specialchars($this->requestToken) ?>">
+            <input type="hidden" name="veranstaltung" value="<?= (int) $v['id'] ?>">
+            <input type="hidden" name="aktion" value="abmelden">
+            <button type="submit"><?= $t['abmelden'] ?></button>
+          </form>
+        <?php else: ?>
+          <p class="ks-text ks-gesperrt">🔒 <?= $t['gesperrt'] ?></p>
+        <?php endif; ?>
+      </li>
+    <?php endforeach; ?>
+  </ul>
+
+  <h3 class="ks-ueberschrift"><?= $t['waehlbar'] ?></h3>
+  <?php if (empty($this->waehlbare)): ?>
+    <p class="ks-text"><?= $t['keineWaehlbar'] ?></p>
+  <?php else: ?>
+    <ul class="ks-liste">
+      <?php foreach ($this->waehlbare as $v): ?>
+        <li class="ks-veranstaltung">
+          <form method="post" class="ks-formular ks-zeile">
+            <input type="hidden" name="FORM_SUBMIT" value="<?= $this->formular ?>_veranstaltung">
+            <input type="hidden" name="REQUEST_TOKEN" value="<?= StringUtil::specialchars($this->requestToken) ?>">
+            <input type="hidden" name="veranstaltung" value="<?= (int) $v['id'] ?>">
+            <input type="hidden" name="aktion" value="anmelden">
+            <span><strong><?= StringUtil::specialchars($v['name']) ?></strong> (<?= Date::parse('d.m.Y', (int) $v['startDate']) ?>)</span>
+            <button type="submit"><?= $t['anmelden'] ?></button>
+          </form>
+        </li>
+      <?php endforeach; ?>
+    </ul>
+  <?php endif; ?>
+
+<?php endif; ?>
+<?php $this->endblock(); ?>
