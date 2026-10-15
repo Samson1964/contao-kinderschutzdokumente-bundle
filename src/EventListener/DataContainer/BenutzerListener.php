@@ -20,8 +20,9 @@ use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Zugang;
  * Schützt die Prüferfreigabe am Backend-Benutzer.
  *
  * Nur der Hauptadmin sieht das Feld kinderschutzPruefer; für alle anderen –
- * auch Administratoren – wird es beim Laden aus den Paletten entfernt, und
- * ein save_callback weist Änderungen zusätzlich ab.
+ * auch Administratoren – wird es beim Laden aus den Paletten, aus dem Filter
+ * der Benutzerliste und aus der Ansicht „Anzeigen“ genommen, und ein
+ * save_callback weist Änderungen zusätzlich ab.
  */
 class BenutzerListener
 {
@@ -36,7 +37,12 @@ class BenutzerListener
 	}
 
 	/**
-	 * Entfernt das Feld für alle außer dem Hauptadmin.
+	 * Macht das Feld für alle außer dem Hauptadmin unsichtbar.
+	 *
+	 * Läuft im onload-Callback von tl_user. Der Hauptadmin bleibt unberührt;
+	 * für jeden anderen Backend-Benutzer übernimmt entferneFeld() das Entfernen
+	 * aus Paletten, Filter und „Anzeigen“. Die Änderung gilt nur für diese
+	 * Anfrage, weil sie an $GLOBALS['TL_DCA'] erfolgt und nichts speichert.
 	 */
 	#[AsCallback(table: 'tl_user', target: 'config.onload')]
 	public function feldEinschraenken(): void
@@ -69,9 +75,21 @@ class BenutzerListener
 	}
 
 	/**
-	 * Entfernt Feld und Legende aus den tl_user-Paletten.
+	 * Entfernt das Feld aus Paletten, Filter und der Ansicht „Anzeigen“.
 	 *
-	 * Statisch und öffentlich, damit der Test genau diesen Weg prüft.
+	 * Drei Stellen verraten das Feld, auch wenn es in keiner Palette mehr
+	 * steht:
+	 *
+	 * - Die Paletten: Feld und die Legende kinderschutz_legend werden entfernt.
+	 * - Der Filter der Benutzerliste: DC_Table::filterMenu() nimmt jedes Feld,
+	 *   dessen „filter“ dem Panel entspricht; false schließt es aus.
+	 * - Die Ansicht „Anzeigen“ (act=show): DC_Table::show() überspringt Felder
+	 *   mit eval.doNotShow, sonst stünde der Wert dort im Klartext.
+	 *
+	 * Statisch und öffentlich, damit der Test genau diesen Weg prüft. Ändert
+	 * nur $GLOBALS['TL_DCA'] der laufenden Anfrage. Fehlt das Feld im DCA (etwa
+	 * weil tl_user.php nicht geladen wurde), legt die Methode einen Eintrag
+	 * ohne inputType an, den Contao ignoriert.
 	 */
 	public static function entferneFeld(): void
 	{
@@ -82,5 +100,8 @@ class BenutzerListener
 					->applyToPalette($palette, 'tl_user');
 			}
 		}
+
+		$GLOBALS['TL_DCA']['tl_user']['fields']['kinderschutzPruefer']['filter'] = false;
+		$GLOBALS['TL_DCA']['tl_user']['fields']['kinderschutzPruefer']['eval']['doNotShow'] = true;
 	}
 }

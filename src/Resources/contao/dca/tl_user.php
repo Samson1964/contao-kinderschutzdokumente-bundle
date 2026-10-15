@@ -16,15 +16,21 @@ use Contao\CoreBundle\DataContainer\PaletteManipulator;
  *
  * Das Feld steht in allen Paletten außer „login“ (eigenes Profil), damit sich
  * niemand selbst freigeben kann. Für alle außer dem Hauptadmin entfernt
- * EventListener\DataContainer\BenutzerListener es beim Laden wieder; ein
- * save_callback weist Änderungen durch andere zusätzlich ab.
+ * EventListener\DataContainer\BenutzerListener es beim Laden wieder – aus den
+ * Paletten, aus dem Filter der Benutzerliste und aus der Ansicht „Anzeigen“;
+ * ein save_callback weist Änderungen durch andere zusätzlich ab.
+ *
+ * doNotCopy: Beim Kopieren eines Benutzers (DC_Table::copy()) setzt Contao das
+ * Feld auf den Leerwert zurück. Ohne das Kennzeichen erbte die Kopie eines
+ * Prüfers die Freigabe, und es entstünde ein neuer Prüfer, den der Hauptadmin
+ * nie freigegeben hat.
  */
 $GLOBALS['TL_DCA']['tl_user']['fields']['kinderschutzPruefer'] = array
 (
 	'exclude'   => false,
 	'filter'    => true,
 	'inputType' => 'checkbox',
-	'eval'      => array('tl_class' => 'w50'),
+	'eval'      => array('tl_class' => 'w50', 'doNotCopy' => true),
 	'sql'       => "char(1) NOT NULL default ''",
 );
 
