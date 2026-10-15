@@ -81,16 +81,23 @@ class Dateiablage
 	 * Eine schon fehlende Datei gilt als gelöscht; das ist kein Fehler, weil
 	 * das Ziel – die Datei ist weg – erreicht ist.
 	 *
+	 * Die Warnung von unlink() wird unterdrückt, weil das Scheitern als
+	 * eigene Ausnahme gemeldet wird: Symfony schriebe sie sonst samt
+	 * absolutem Pfad ins Protokoll und machte im Debug-Modus eine
+	 * ErrorException daraus, die an den Aufrufern (sie fangen
+	 * RuntimeException) vorbei auf eine Fehlerseite führte.
+	 *
 	 * @param string $relativ Pfad aus der Spalte „datei“
 	 *
 	 * @throws \RuntimeException Wenn eine vorhandene Datei nicht gelöscht
-	 *                           werden konnte
+	 *                           werden konnte; die Meldung nennt nur den
+	 *                           relativen Pfad
 	 */
 	public function loesche(string $relativ): void
 	{
 		$pfad = $this->pfad($relativ);
 
-		if (null !== $pfad && !unlink($pfad)) {
+		if (null !== $pfad && !@unlink($pfad)) {
 			throw new \RuntimeException('Datei konnte nicht gelöscht werden: '.$relativ);
 		}
 	}
