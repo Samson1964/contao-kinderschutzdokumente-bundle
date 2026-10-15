@@ -285,6 +285,14 @@ class NachweisListener
 
 	/**
 	 * Richtet die Liste als Papierkorb ein.
+	 *
+	 * Gezeigt werden nur Nachweise, deren Datei im Papierkorb liegt, ältester
+	 * Einwurf zuerst und nach Einwurftag gruppiert. Anlegen, Bearbeiten,
+	 * Kopieren und Löschen sind aus; an ihre Stelle treten die eigenen
+	 * Aktionen „Wiederherstellen“, „Endgültig löschen“ und „Papierkorb leeren“.
+	 *
+	 * Seiteneffekt: ändert $GLOBALS['TL_DCA']['tl_kinderschutz'] für diese
+	 * Anfrage.
 	 */
 	private function papierkorbAnsicht(): void
 	{
@@ -297,7 +305,9 @@ class NachweisListener
 		$dca['config']['notDeletable'] = true;
 		$dca['config']['notCopyable'] = true;
 		$dca['list']['sorting']['fields'] = array('papierkorbSeit');
-		$dca['list']['sorting']['flag'] = DataContainer::SORT_ASC;
+		// Nach Tag, damit Contao über den Gruppen ein Datum ausgibt und nicht
+		// den rohen Zeitstempel (papierkorbSeit hat kein rgxp)
+		$dca['list']['sorting']['flag'] = DataContainer::SORT_DAY_ASC;
 		$dca['list']['sorting']['panelLayout'] = 'limit';
 		$dca['list']['sorting']['filter'] = array(array('papierkorbSeit>?', 0), array('datei!=?', ''));
 		$dca['list']['global_operations'] = array(
