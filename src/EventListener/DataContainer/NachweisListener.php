@@ -69,6 +69,26 @@ class NachweisListener
 	 * - act=create mit member/dokumentart: Vorbelegung (Link aus der Matrix).
 	 * - act=edit eines hochgeladenen Nachweises: Person und Art sind fest und
 	 *   stehen nur noch im Kopf der Maske.
+	 * - act=editAll und act=overrideAll („Mehrere bearbeiten“, „Überschreiben“):
+	 *   Person und Art sind für alle Nachweise gesperrt, auch für Prüfvermerke
+	 *   ohne Upload. Sonst ließe sich ein hochgeladenes Führungszeugnis dort
+	 *   einer anderen Person oder Art zuordnen. Die Einzelmaske eines
+	 *   Prüfvermerks ohne Upload bleibt der Weg, beides zu ändern.
+	 *
+	 * Zum Sperren reicht die Palette nicht: Die Feldauswahl beider Aktionen
+	 * listet jedes Feld aus $GLOBALS['TL_DCA'][…]['fields'] mit inputType
+	 * (DC_Table::editAll()/overrideAll(), Schritt 1, in 4.13 wie in 5.7), und
+	 * „Überschreiben“ speichert die gewählten Felder ohne Blick auf die
+	 * Palette. Die Auswahl selbst landet nur in der Session
+	 * (CURRENT → tl_kinderschutz), act=select hat keine eigene Feldliste.
+	 * Ohne inputType bietet Contao das Feld nicht an, und
+	 * DataContainer::row() baut dafür kein Eingabefeld und speichert nichts –
+	 * auch nicht, wenn eine nachgebaute Anfrage das Feld in all_fields
+	 * schickt. Aus der Palette fliegen die Felder zusätzlich, damit
+	 * „Mehrere bearbeiten“ row() für sie gar nicht erst aufruft.
+	 *
+	 * Seiteneffekt: verändert $GLOBALS['TL_DCA']['tl_kinderschutz'] für die
+	 * laufende Anfrage.
 	 *
 	 * @throws \Contao\CoreBundle\Exception\AccessDeniedException Ohne Berechtigung
 	 */
@@ -105,6 +125,11 @@ class NachweisListener
 			if (null !== $zeile && 'frontend' === $zeile['quelle']) {
 				$dca['palettes']['default'] = str_replace('{person_legend},member,dokumentart;', '', $dca['palettes']['default']);
 			}
+		}
+
+		if ('editAll' === $act || 'overrideAll' === $act) {
+			$dca['palettes']['default'] = str_replace('{person_legend},member,dokumentart;', '', $dca['palettes']['default']);
+			unset($dca['fields']['member']['inputType'], $dca['fields']['dokumentart']['inputType']);
 		}
 	}
 

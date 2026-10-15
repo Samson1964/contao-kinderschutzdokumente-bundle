@@ -137,6 +137,71 @@ class NachweisListenerTest extends TestCase
 	}
 
 	/**
+	 * „Mehrere bearbeiten“ und „Überschreiben“ bieten Person und Art nicht an.
+	 *
+	 * Im Prüfstand 5.7 standen beide in der Feldauswahl; so ließ sich ein
+	 * hochgeladenes Führungszeugnis einer anderen Person zuordnen. Contao
+	 * listet dort jedes Feld mit inputType (oder input_field_callback), das
+	 * nicht doNotShow trägt; die Bedingung ist hier nachgebaut. Geprüft wird
+	 * außerdem, dass die Felder aus der Palette verschwinden und die übrigen
+	 * Prüffelder wählbar bleiben.
+	 *
+	 * @dataProvider sammelaktionen
+	 *
+	 * @param string $act Wert von „act“
+	 */
+	public function testSammelbearbeitungSperrtPersonUndArt(string $act): void
+	{
+		$this->listener('kinderschutz_nachweise', false, array('act' => $act))->beimLaden();
+
+		$dca = $GLOBALS['TL_DCA']['tl_kinderschutz'];
+		$angeboten = array_keys(array_filter($dca['fields'], static fn (array $feld): bool => !($feld['eval']['doNotShow'] ?? false) && (isset($feld['inputType']) || isset($feld['input_field_callback']))));
+
+		$this->assertNotContains('member', $angeboten);
+		$this->assertNotContains('dokumentart', $angeboten);
+		$this->assertSame(array('status', 'ausstellungsdatum', 'einschlaegig', 'ablehnungsgrund', 'bemerkung'), $angeboten);
+		$this->assertStringNotContainsString('member', $dca['palettes']['default']);
+		$this->assertStringNotContainsString('dokumentart', $dca['palettes']['default']);
+		$this->assertStringContainsString('{pruefung_legend},status,ausstellungsdatum,einschlaegig,ablehnungsgrund', $dca['palettes']['default']);
+	}
+
+	/**
+	 * Liefert die beiden Sammelaktionen von DC_Table.
+	 *
+	 * @return array<string, array{string}> Je Aktion der Wert von „act“
+	 */
+	public static function sammelaktionen(): array
+	{
+		return array(
+			'Mehrere bearbeiten' => array('editAll'),
+			'Überschreiben'      => array('overrideAll'),
+		);
+	}
+
+	/**
+	 * Die Einzelmaske sperrt Person und Art nur bei hochgeladenen Nachweisen.
+	 *
+	 * Gegenprobe zur Sammelbearbeitung: Ein Prüfvermerk ohne Upload behält
+	 * beide Felder samt Eingabefeld, ebenso die Auswahlseite act=select;
+	 * ein Upload aus dem Frontend verliert sie nur aus der Palette.
+	 */
+	public function testEinzelmaskeSperrtNurUploads(): void
+	{
+		$palette = $GLOBALS['TL_DCA']['tl_kinderschutz']['palettes']['default'];
+
+		$this->listener('kinderschutz_nachweise', false, array('act' => 'edit', 'id' => '4'), array('id' => 4, 'dokumentart' => 1, 'quelle' => 'backend'))->beimLaden();
+		$this->listener('kinderschutz_nachweise', false, array('act' => 'select'))->beimLaden();
+
+		$this->assertSame($palette, $GLOBALS['TL_DCA']['tl_kinderschutz']['palettes']['default']);
+		$this->assertSame('select', $GLOBALS['TL_DCA']['tl_kinderschutz']['fields']['member']['inputType']);
+		$this->assertSame('select', $GLOBALS['TL_DCA']['tl_kinderschutz']['fields']['dokumentart']['inputType']);
+
+		$this->listener('kinderschutz_nachweise', false, array('act' => 'edit', 'id' => '4'), array('id' => 4, 'dokumentart' => 1, 'quelle' => 'frontend'))->beimLaden();
+
+		$this->assertStringNotContainsString('member', $GLOBALS['TL_DCA']['tl_kinderschutz']['palettes']['default']);
+	}
+
+	/**
 	 * Legt eine POST-Anfrage ins Backend und stellt Contao den Container bereit.
 	 *
 	 * @param array<string, string> $daten Formularfelder
@@ -178,18 +243,21 @@ class NachweisListenerTest extends TestCase
 	 * Alle Dienste sind Attrappen; die Zugangsprüfung lässt durch. Der
 	 * Nachweis gehört zur Dokumentart 1.
 	 *
-	 * @param string $do           Wert von „do“
-	 * @param bool   $einschlaegig Die Dokumentart fragt einschlägige Einträge ab
+	 * @param string                    $do           Wert von „do“
+	 * @param bool                      $einschlaegig Die Dokumentart fragt einschlägige Einträge ab
+	 * @param array<string, string>     $abfrage      Weitere Werte der Adresse, etwa act und id
+	 * @param array<string, mixed>|null $zeile        Der Nachweis, den das Repository liefert;
+	 *                                                null nimmt ID 4 mit Dokumentart 1
 	 *
 	 * @return NachweisListener Der Listener
 	 */
-	private function listener(string $do, bool $einschlaegig = false): NachweisListener
+	private function listener(string $do, bool $einschlaegig = false, array $abfrage = array(), ?array $zeile = null): NachweisListener
 	{
 		$anfragen = new RequestStack();
-		$anfragen->push(new Request(array('do' => $do)));
+		$anfragen->push(new Request(array_merge(array('do' => $do), $abfrage)));
 
 		$nachweise = $this->createMock(NachweisRepository::class);
-		$nachweise->method('zeile')->willReturn(array('id' => 4, 'dokumentart' => 1));
+		$nachweise->method('zeile')->willReturn($zeile ?? array('id' => 4, 'dokumentart' => 1));
 
 		$arten = $this->createMock(DokumentartRepository::class);
 		$arten->method('eine')->willReturn(new Dokumentart(1, 'Erweitertes Führungszeugnis', '', true, 24, $einschlaegig, $einschlaegig));
