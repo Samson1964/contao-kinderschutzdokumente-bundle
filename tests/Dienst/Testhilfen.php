@@ -58,6 +58,12 @@ abstract class Testhilfen extends TestCase
 	/**
 	 * Ein Framework-Mock mit echtem Config-Adapter und Sprachlader.
 	 *
+	 * Der Sprachlader nimmt nur den Aufruf loadLanguageFile('default', 'de')
+	 * an. Jeder andere Aufruf (falsche Datei, falsche Sprache) verletzt die
+	 * Erwartung und lässt den Test scheitern, statt unbemerkt die deutsche
+	 * Datei zu laden. Die Datei wird bei jedem Aufruf neu eingelesen und
+	 * füllt $GLOBALS['TL_LANG'] wie Contao selbst.
+	 *
 	 * @return ContaoFramework Das Mock
 	 */
 	protected function framework(): ContaoFramework
@@ -66,7 +72,7 @@ abstract class Testhilfen extends TestCase
 			->setConstructorArgs(array(System::class))
 			->addMethods(array('loadLanguageFile'))
 			->getMock();
-		$system->method('loadLanguageFile')->willReturnCallback(static function (): void {
+		$system->method('loadLanguageFile')->with('default', 'de')->willReturnCallback(static function (): void {
 			include __DIR__.'/../../src/Resources/contao/languages/de/default.php';
 		});
 

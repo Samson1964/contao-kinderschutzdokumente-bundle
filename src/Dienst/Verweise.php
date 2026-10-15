@@ -13,6 +13,7 @@ namespace Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst;
 
 use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\PageModel;
+use Symfony\Component\Routing\Exception\ExceptionInterface as RoutingExceptionInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
@@ -40,7 +41,15 @@ class Verweise
 	 * Contao im Cronjob den Host der Konsole – deshalb gehört die Domain in
 	 * die Einrichtung (README).
 	 *
-	 * @return string Die Adresse, oder leer, wenn keine Seite eingestellt ist
+	 * Ist die Seite nicht routbar (etwa unveröffentlicht oder ohne gültigen
+	 * Startpunkt), wirft getAbsoluteUrl() eine Ausnahme des Routing-Bausteins,
+	 * zum Beispiel RouteNotFoundException. Sie wird hier abgefangen und
+	 * ergibt einen leeren Link: Der Aufruf steht in den Argumentlisten der
+	 * Mails, also außerhalb jedes try, und die Ausnahme bräche sonst bis in
+	 * Upload und Cronjob durch. Die Mail geht dann ohne Link hinaus.
+	 *
+	 * @return string Die Adresse, oder leer, wenn keine Seite eingestellt
+	 *                ist, die Seite nicht mehr existiert oder nicht routbar ist
 	 */
 	public function unterlagenseite(): string
 	{
@@ -53,7 +62,15 @@ class Verweise
 		$this->framework->initialize();
 		$seite = $this->framework->getAdapter(PageModel::class)->findByPk($id);
 
-		return null === $seite ? '' : (string) $seite->getAbsoluteUrl();
+		if (null === $seite) {
+			return '';
+		}
+
+		try {
+			return (string) $seite->getAbsoluteUrl();
+		} catch (RoutingExceptionInterface) {
+			return '';
+		}
 	}
 
 	/**

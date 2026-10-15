@@ -18,6 +18,7 @@ use Schachbulle\ContaoKinderschutzdokumenteBundle\Datenbank\PersonenRepository;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
+use Symfony\Component\Mime\Exception\ExceptionInterface as MimeExceptionInterface;
 
 /**
  * Verschickt die fünf Mails des Bundles.
@@ -31,9 +32,12 @@ use Symfony\Component\Mime\Email;
  * Grundsatz: Mails nennen Person, Dokumentart, Datum und Status, nie ein
  * Prüfergebnis wie „einschlägige Einträge“.
  *
- * Ein gescheiterter Versand bricht keinen Ablauf ab. Er wird protokolliert
- * und mit false gemeldet, damit der Cronjob den Versandmerker nicht setzt
- * und es am nächsten Tag erneut versucht.
+ * Ein gescheiterter Versand bricht keinen Ablauf ab, auch nicht bei einer
+ * RFC-widrigen Mailadresse. Er wird protokolliert und mit false gemeldet,
+ * damit der Cronjob den Versandmerker nicht setzt und es am nächsten Tag
+ * erneut versucht. Das Systemprotokoll bekommt dabei nie eine Mailadresse
+ * und keinen Fehlertext des Mailservers zu sehen, nur Mailart, Zahl der
+ * Empfänger und Fehlerklasse.
  */
 class Benachrichtigung
 {
@@ -166,11 +170,27 @@ class Benachrichtigung
 	/**
 	 * Setzt eine Mail aus der Sprachdatei zusammen und verschickt sie.
 	 *
+	 * Wirft nie wegen des Versands. Scheitert der Aufbau der Mail (eine
+	 * RFC-widrige Empfänger- oder Absenderadresse wie „anna@@example.org“
+	 * lässt schon from() oder to() eine Ausnahme des Mime-Bausteins werfen)
+	 * oder der Transport, bleibt es bei einem Protokolleintrag und false.
+	 * Deshalb steht der Aufbau der Mail im try und nicht davor: Sonst bräche
+	 * die Ausnahme bis in Upload und Cronjob durch.
+	 *
+	 * Seiteneffekte: initialisiert das Contao-Framework, lädt die deutsche
+	 * Sprachdatei in $GLOBALS['TL_LANG'] und schreibt bei Misserfolg einen
+	 * Eintrag ins Systemprotokoll. Der Eintrag nennt nur die Mailart, die
+	 * Zahl der Empfänger und die Klasse der Ausnahme, weder Adressen noch den
+	 * Fehlertext des Mailservers: Das Systemprotokoll steht allen
+	 * Administratoren offen, und der Text des Servers enthält oft die Adresse.
+	 *
 	 * @param list<string>          $empfaenger Adressen; leere werden übergangen
 	 * @param string                $vorlage    Schlüssel unter kinderschutz_mail
 	 * @param array<string, string> $werte      Platzhalter und ihre Werte
 	 *
-	 * @return bool true, wenn die Mail an mindestens eine Adresse ging
+	 * @return bool true, wenn die Mail an den Mailer übergeben wurde; false,
+	 *              wenn Absender oder Empfänger fehlen oder Aufbau oder
+	 *              Versand scheiterten
 	 */
 	private function sende(array $empfaenger, string $vorlage, array $werte): bool
 	{
@@ -187,16 +207,16 @@ class Benachrichtigung
 		$this->framework->getAdapter(System::class)->loadLanguageFile('default', 'de');
 		$text = $GLOBALS['TL_LANG']['MSC']['kinderschutz_mail'][$vorlage] ?? array($vorlage, '');
 
-		$mail = (new Email())
-			->from($absender)
-			->to(...$empfaenger)
-			->subject(strtr((string) $text[0], $werte))
-			->text(strtr((string) $text[1], $werte));
-
 		try {
+			$mail = (new Email())
+				->from($absender)
+				->to(...$empfaenger)
+				->subject(strtr((string) $text[0], $werte))
+				->text(strtr((string) $text[1], $werte));
+
 			$this->mailer->send($mail);
-		} catch (TransportExceptionInterface $fehler) {
-			$this->protokoll->error(sprintf('Kinderschutz: Mail „%s“ an %s gescheitert: %s', $vorlage, implode(', ', $empfaenger), $fehler->getMessage()));
+		} catch (TransportExceptionInterface|MimeExceptionInterface $fehler) {
+			$this->protokoll->error(sprintf('Kinderschutz: Mail „%s“ an %d Empfänger nicht verschickt (%s)', $vorlage, count($empfaenger), $fehler::class));
 
 			return false;
 		}
