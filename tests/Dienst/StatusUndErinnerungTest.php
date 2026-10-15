@@ -492,7 +492,7 @@ class StatusUndErinnerungTest extends Testhilfen
 			new PersonenRepository($this->db),
 			new VeranstaltungRepository($this->db),
 			$this->einstellungen(),
-			new Benachrichtigung($this->mailer(), $this->einstellungen(), $this->verweise(), $this->framework(), new NullLogger()),
+			new Benachrichtigung($this->transport(), $this->einstellungen(), $this->verweise(), $this->framework(), new NullLogger()),
 		);
 	}
 }

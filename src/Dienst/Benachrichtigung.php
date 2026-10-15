@@ -15,8 +15,8 @@ use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\System;
 use Psr\Log\LoggerInterface;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Datenbank\PersonenRepository;
-use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
-use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Mailer\Exception\ExceptionInterface as MailerExceptionInterface;
+use Symfony\Component\Mailer\Transport\TransportInterface;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Mime\Exception\ExceptionInterface as MimeExceptionInterface;
 
@@ -38,18 +38,44 @@ use Symfony\Component\Mime\Exception\ExceptionInterface as MimeExceptionInterfac
  * erneut versucht. Das Systemprotokoll bekommt dabei nie eine Mailadresse
  * und keinen Fehlertext des Mailservers zu sehen, nur Mailart, Zahl der
  * Empfänger und Fehlerklasse.
+ *
+ * Versandweg: Die Mails gehen synchron über den Standardtransport des
+ * Mailers (TransportInterface, im FrameworkBundle der Dienst
+ * mailer.default_transport), nicht über MailerInterface. Contao 5.7 leitet
+ * MailerInterface::send() über den Messenger in eine Warteschlange; send()
+ * kehrt sofort zurück, und ein Fehler entsteht erst im Worker, wenn die
+ * Anfrage längst beantwortet ist. Dann erführe der Prüfer nie, dass die
+ * Ablehnungsmail nicht hinausging, der Cronjob setzte seinen Versandmerker
+ * trotzdem, und den einzigen Protokolleintrag schriebe Contao – mit der
+ * Empfängeradresse. Über den Transport wirft send() den Fehler sofort, und
+ * die Rückmeldung an den Prüfer sowie der eigene Eintrag ohne Adresse
+ * greifen in 4.13 wie in 5.7.
+ *
+ * Der Preis: Contaos ContaoMailer wird umgangen. Die Transportwahl je
+ * Startpunkt (Feld „mailerTransport“, Kopfzeile X-Transport) samt der dort
+ * hinterlegten Absenderadresse und in 5.7 die Einstellung
+ * contao.mailer.override_from gelten für diese Mails nicht; sie gehen immer
+ * über den ersten Transport aus framework.mailer. Die Ereignisse des
+ * Transports laufen dagegen weiter (Envelope- und Kopfzeilen-Vorgaben aus
+ * framework.mailer). Deshalb schreibt Contao 5.7 über seinen
+ * LogEmailMessageListener zusätzlich „Failed to send e-mail to …“ bzw. „An
+ * e-mail has been sent to …“ mit Adresse ins Protokoll; das ist Verhalten
+ * des Kerns für jede Mail der Installation und lässt sich vom Bundle aus
+ * nicht abstellen.
  */
 class Benachrichtigung
 {
 	/**
-	 * @param MailerInterface $mailer        Der von Contao konfigurierte Mailer
-	 * @param Einstellungen   $einstellungen Liefert den Absender
-	 * @param Verweise        $verweise      Baut die Links
-	 * @param ContaoFramework $framework     Lädt die Sprachdatei
-	 * @param LoggerInterface $protokoll     Contao-Systemprotokoll
+	 * @param TransportInterface $mailer        Der Standardtransport des Mailers
+	 *                                          (mailer.default_transport); verschickt
+	 *                                          synchron und wirft bei Fehlern sofort
+	 * @param Einstellungen      $einstellungen Liefert den Absender
+	 * @param Verweise           $verweise      Baut die Links
+	 * @param ContaoFramework    $framework     Lädt die Sprachdatei
+	 * @param LoggerInterface    $protokoll     Contao-Systemprotokoll
 	 */
 	public function __construct(
-		private readonly MailerInterface $mailer,
+		private readonly TransportInterface $mailer,
 		private readonly Einstellungen $einstellungen,
 		private readonly Verweise $verweise,
 		private readonly ContaoFramework $framework,
@@ -177,18 +203,27 @@ class Benachrichtigung
 	 * Deshalb steht der Aufbau der Mail im try und nicht davor: Sonst bräche
 	 * die Ausnahme bis in Upload und Cronjob durch.
 	 *
+	 * Der Transport bekommt keinen Envelope mit. AbstractTransport::send()
+	 * baut ihn wie der Mailer selbst mit Envelope::create() aus der Mail:
+	 * Absender aus From, Empfänger aus To. Abgefangen werden alle Ausnahmen
+	 * des Mailer-Bausteins, nicht nur Transportfehler, weil der Envelope erst
+	 * im Transport entsteht und eigene wirft – etwa bei einem Umlaut vor dem
+	 * @ der Absenderadresse, den Email noch annimmt.
+	 *
 	 * Seiteneffekte: initialisiert das Contao-Framework, lädt die deutsche
-	 * Sprachdatei in $GLOBALS['TL_LANG'] und schreibt bei Misserfolg einen
-	 * Eintrag ins Systemprotokoll. Der Eintrag nennt nur die Mailart, die
-	 * Zahl der Empfänger und die Klasse der Ausnahme, weder Adressen noch den
-	 * Fehlertext des Mailservers: Das Systemprotokoll steht allen
-	 * Administratoren offen, und der Text des Servers enthält oft die Adresse.
+	 * Sprachdatei in $GLOBALS['TL_LANG'], verbindet sich synchron mit dem
+	 * Mailserver (die Anfrage wartet also auf ihn) und schreibt bei
+	 * Misserfolg einen Eintrag ins Systemprotokoll. Der Eintrag nennt nur die
+	 * Mailart, die Zahl der Empfänger und die Klasse der Ausnahme, weder
+	 * Adressen noch den Fehlertext des Mailservers: Das Systemprotokoll steht
+	 * allen Administratoren offen, und der Text des Servers enthält oft die
+	 * Adresse.
 	 *
 	 * @param list<string>          $empfaenger Adressen; leere werden übergangen
 	 * @param string                $vorlage    Schlüssel unter kinderschutz_mail
 	 * @param array<string, string> $werte      Platzhalter und ihre Werte
 	 *
-	 * @return bool true, wenn die Mail an den Mailer übergeben wurde; false,
+	 * @return bool true, wenn der Transport die Mail angenommen hat; false,
 	 *              wenn Absender oder Empfänger fehlen oder Aufbau oder
 	 *              Versand scheiterten
 	 */
@@ -215,7 +250,7 @@ class Benachrichtigung
 				->text(strtr((string) $text[1], $werte));
 
 			$this->mailer->send($mail);
-		} catch (TransportExceptionInterface|MimeExceptionInterface $fehler) {
+		} catch (MailerExceptionInterface|MimeExceptionInterface $fehler) {
 			$this->protokoll->error(sprintf('Kinderschutz: Mail „%s“ an %d Empfänger nicht verschickt (%s)', $vorlage, count($empfaenger), $fehler::class));
 
 			return false;

@@ -17,7 +17,8 @@ use Contao\System;
 use PHPUnit\Framework\TestCase;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Einstellungen;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Verweise;
-use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Mailer\SentMessage;
+use Symfony\Component\Mailer\Transport\TransportInterface;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Mime\RawMessage;
 
@@ -107,17 +108,24 @@ abstract class Testhilfen extends TestCase
 	}
 
 	/**
-	 * Ein Mailer, der Mails in $this->mails sammelt.
+	 * Ein Mailtransport, der Mails in $this->mails sammelt.
 	 *
-	 * @return MailerInterface Der Mailer
+	 * Die Benachrichtigung verschickt synchron über TransportInterface. Das
+	 * Mock nimmt jede Mail an und gibt null zurück, was der Vertrag von
+	 * TransportInterface::send() zulässt (Mail von einem Listener verworfen);
+	 * die Benachrichtigung wertet den Rückgabewert nicht aus.
+	 *
+	 * @return TransportInterface Der Transport
 	 */
-	protected function mailer(): MailerInterface
+	protected function transport(): TransportInterface
 	{
-		$mailer = $this->createMock(MailerInterface::class);
-		$mailer->method('send')->willReturnCallback(function (RawMessage $mail): void {
+		$transport = $this->createMock(TransportInterface::class);
+		$transport->method('send')->willReturnCallback(function (RawMessage $mail): ?SentMessage {
 			$this->mails[] = $mail;
+
+			return null;
 		});
 
-		return $mailer;
+		return $transport;
 	}
 }

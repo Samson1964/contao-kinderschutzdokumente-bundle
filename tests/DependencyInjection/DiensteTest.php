@@ -29,7 +29,7 @@ use Schachbulle\ContaoKinderschutzdokumenteBundle\Regeln\Nachweis;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Sicherheit\TabellenVoter;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Mailer\Transport\TransportInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 
@@ -106,7 +106,9 @@ class DiensteTest extends TestCase
 			TokenStorageInterface::class,
 			RequestStack::class,
 			ContaoFramework::class,
-			MailerInterface::class,
+			// Die Benachrichtigung verschickt synchron über den Standardtransport,
+			// nicht über MailerInterface; ohne diesen Platzhalter scheitert das Autowiring
+			TransportInterface::class,
 			UrlGeneratorInterface::class,
 			ContaoCsrfTokenManager::class,
 			// Das Frontend-Modul erbt von AbstractController; dessen Dienstlocator

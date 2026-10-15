@@ -14,8 +14,11 @@ namespace Schachbulle\ContaoKinderschutzdokumenteBundle\Tests\Dienst;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Benachrichtigung;
+use Symfony\Component\Mailer\Exception\InvalidArgumentException as MailerInvalidArgumentException;
 use Symfony\Component\Mailer\Exception\TransportException;
-use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Mailer\SentMessage;
+use Symfony\Component\Mailer\Transport\AbstractTransport;
+use Symfony\Component\Mailer\Transport\TransportInterface;
 use Symfony\Component\Mime\Exception\RfcComplianceException;
 
 /**
@@ -243,10 +246,10 @@ class BenachrichtigungTest extends Testhilfen
 	 */
 	public function testTransportfehler(): void
 	{
-		$mailer = $this->createMock(MailerInterface::class);
-		$mailer->method('send')->willThrowException(new TransportException('SMTP weg: 550 anna@example.org abgelehnt'));
+		$transport = $this->createMock(TransportInterface::class);
+		$transport->method('send')->willThrowException(new TransportException('SMTP weg: 550 anna@example.org abgelehnt'));
 
-		$dienst = $this->dienst($this->protokoll(1), $mailer);
+		$dienst = $this->dienst($this->protokoll(1), $transport);
 
 		$this->assertFalse($dienst->abgelehnt(self::ANNA, 'Ehrenkodex', 'x'));
 
@@ -308,16 +311,102 @@ class BenachrichtigungTest extends Testhilfen
 	}
 
 	/**
-	 * Der Dienst mit sammelndem Mailer.
+	 * Der Envelope eines echten Transports nennt Absender und Empfänger der Mail.
 	 *
-	 * @param LoggerInterface|null $protokoll Das Protokoll; ohne Angabe ein NullLogger
-	 * @param MailerInterface|null $mailer    Der Mailer; ohne Angabe der sammelnde Mailer, dessen Mails in $this->mails landen
+	 * Die Benachrichtigung gibt dem Transport keinen Envelope mit;
+	 * AbstractTransport::send() baut ihn mit Envelope::create() aus From und
+	 * To. Ein Transport auf Basis von AbstractTransport (wie SMTP, Sendmail
+	 * und der Null-Transport) bekommt so den eingestellten Absender als
+	 * Envelope-Absender und alle Prüfer als Empfänger.
+	 */
+	public function testEnvelopeNenntAbsenderUndEmpfaenger(): void
+	{
+		$transport = $this->echterTransport();
+
+		$this->assertTrue($this->dienst(null, $transport)->neueEinreichung(self::ANNA, 'Ehrenkodex', array('astrid@example.org', 'haupt@example.org')));
+
+		$this->assertCount(1, $transport->gesendet);
+		$envelope = $transport->gesendet[0]->getEnvelope();
+		$this->assertSame('kinderschutz@example.org', $envelope->getSender()->getAddress());
+		$this->assertSame(array('astrid@example.org', 'haupt@example.org'), array_map(static fn ($adresse) => $adresse->getAddress(), $envelope->getRecipients()));
+	}
+
+	/**
+	 * Ein Fehler beim Bau des Envelopes wirft nicht, sondern ergibt false.
+	 *
+	 * Einen Umlaut vor dem @ der Absenderadresse nimmt Email noch an; erst
+	 * der Envelope im Transport lehnt ihn mit einer InvalidArgumentException
+	 * des Mailer-Bausteins ab, die keine Transportausnahme ist. Seit dem
+	 * synchronen Versand entstünde sie mitten in Upload oder Cronjob.
+	 */
+	public function testFehlerImEnvelopeWirftNicht(): void
+	{
+		$GLOBALS['TL_CONFIG']['kinderschutzAbsender'] = 'kinderschütz@example.org';
+		$transport = $this->echterTransport();
+
+		$this->assertFalse($this->dienst($this->protokoll(1), $transport)->abgelehnt(self::ANNA, 'Ehrenkodex', 'x'));
+
+		$this->assertSame(array(), $transport->gesendet);
+		$this->assertSame(array('Kinderschutz: Mail „abgelehnt“ an 1 Empfänger nicht verschickt ('.MailerInvalidArgumentException::class.')'), $this->meldungen);
+		$this->assertProtokollOhneAdresse($this->meldungen[0]);
+	}
+
+	/**
+	 * Der Dienst mit sammelndem Transport.
+	 *
+	 * @param LoggerInterface|null    $protokoll Das Protokoll; ohne Angabe ein NullLogger
+	 * @param TransportInterface|null $transport Der Mailtransport; ohne Angabe der sammelnde
+	 *                                           Transport, dessen Mails in $this->mails landen
 	 *
 	 * @return Benachrichtigung Der Dienst
 	 */
-	private function dienst(?LoggerInterface $protokoll = null, ?MailerInterface $mailer = null): Benachrichtigung
+	private function dienst(?LoggerInterface $protokoll = null, ?TransportInterface $transport = null): Benachrichtigung
 	{
-		return new Benachrichtigung($mailer ?? $this->mailer(), $this->einstellungen(), $this->verweise(), $this->framework(), $protokoll ?? new NullLogger());
+		return new Benachrichtigung($transport ?? $this->transport(), $this->einstellungen(), $this->verweise(), $this->framework(), $protokoll ?? new NullLogger());
+	}
+
+	/**
+	 * Ein echter Transport auf Basis von AbstractTransport, der nichts verschickt.
+	 *
+	 * Anders als das Mock aus den Testhilfen läuft der Versand hier durch
+	 * AbstractTransport::send() wie bei SMTP: Der Envelope entsteht dort, und
+	 * doSend() liest Absender und Empfänger daraus, wie ein echter Transport
+	 * es vor dem Gespräch mit dem Mailserver tut. Angenommene Mails stehen in
+	 * der öffentlichen Eigenschaft $gesendet.
+	 *
+	 * @return AbstractTransport Der Transport mit der Eigenschaft $gesendet (list<SentMessage>)
+	 */
+	private function echterTransport(): AbstractTransport
+	{
+		return new class() extends AbstractTransport {
+			/** @var list<SentMessage> */
+			public array $gesendet = array();
+
+			/**
+			 * Liest Absender und Empfänger aus dem Envelope und legt die Mail ab.
+			 *
+			 * Das Lesen löst die Prüfungen des Envelopes aus; scheitern sie,
+			 * wirft schon dieser Aufruf, und die Mail wird nicht abgelegt.
+			 *
+			 * @param SentMessage $message Die Mail samt Envelope
+			 */
+			protected function doSend(SentMessage $message): void
+			{
+				$message->getEnvelope()->getSender();
+				$message->getEnvelope()->getRecipients();
+				$this->gesendet[] = $message;
+			}
+
+			/**
+			 * Name des Transports, wie ihn Symfony in Protokollen nennt.
+			 *
+			 * @return string Eine Pseudo-DSN
+			 */
+			public function __toString(): string
+			{
+				return 'sammeln://test';
+			}
+		};
 	}
 
 	/**

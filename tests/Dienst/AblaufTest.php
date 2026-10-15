@@ -29,7 +29,7 @@ use Schachbulle\ContaoKinderschutzdokumenteBundle\Tests\Datenbank as Testdatenba
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Tests\Testdateien;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Mailer\Exception\TransportException;
-use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Mailer\Transport\TransportInterface;
 
 /**
  * Prüft den Weg einer Unterlage: Einreichen, Ersetzen, Prüfen, Ablehnen,
@@ -342,7 +342,7 @@ class AblaufTest extends Testhilfen
 	 */
 	public function testGescheiterteAblehnungsmailWirdGemeldet(): void
 	{
-		$kaputt = $this->createMock(MailerInterface::class);
+		$kaputt = $this->createMock(TransportInterface::class);
 		$kaputt->method('send')->willThrowException(new TransportException('Verbindung zum Mailserver verweigert'));
 		$id = Testdatenbank::nachweis($this->db, array('member' => $this->anna, 'dokumentart' => $this->kodex, 'status' => Nachweis::ABGELEHNT, 'ablehnungsgrund' => 'Unterschrift fehlt', 'ausstellungsdatum' => strtotime('2026-03-15'), 'quelle' => 'backend'));
 
@@ -625,16 +625,17 @@ class AblaufTest extends Testhilfen
 	}
 
 	/**
-	 * Die Benachrichtigung, standardmäßig mit sammelndem Mailer.
+	 * Die Benachrichtigung, standardmäßig mit sammelndem Transport.
 	 *
-	 * @param MailerInterface|null $mailer Eigener Mailer; null nimmt den
-	 *                                     sammelnden, der in $this->mails ablegt
+	 * @param TransportInterface|null $transport Eigener Transport; null nimmt
+	 *                                           den sammelnden, der in
+	 *                                           $this->mails ablegt
 	 *
 	 * @return Benachrichtigung Der Dienst
 	 */
-	private function benachrichtigung(?MailerInterface $mailer = null): Benachrichtigung
+	private function benachrichtigung(?TransportInterface $transport = null): Benachrichtigung
 	{
-		return new Benachrichtigung($mailer ?? $this->mailer(), $this->einstellungen(), $this->verweise(), $this->framework(), new NullLogger());
+		return new Benachrichtigung($transport ?? $this->transport(), $this->einstellungen(), $this->verweise(), $this->framework(), new NullLogger());
 	}
 
 	/**
