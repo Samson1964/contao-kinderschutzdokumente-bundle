@@ -138,6 +138,59 @@ class NachweisListenerTest extends TestCase
 	}
 
 	/**
+	 * In „Mehrere bearbeiten“ und „Überschreiben“ zählt die Art aus der Datenbank.
+	 *
+	 * Dort ist die Dokumentart gesperrt. Eine nachgebaute Anfrage, die
+	 * trotzdem dokumentart (bzw. dokumentart_4) mit einer Art ohne Abfrage
+	 * „Einschlägige Einträge“ schickt, umging bisher die Pflichtangabe, weil
+	 * die Prüfung die Art zuerst aus dem Formular las.
+	 *
+	 * @dataProvider sammelaktionenMitEndung
+	 *
+	 * @param string $act    Wert von „act“
+	 * @param string $endung Endung der Feldnamen in dieser Aktion
+	 */
+	public function testSammelbearbeitungLiestArtAusDerDatenbank(string $act, string $endung): void
+	{
+		$this->anfrage(array('status'.$endung => 'geprueft', 'einschlaegig'.$endung => '', 'dokumentart'.$endung => '2'));
+
+		$this->expectException(\RuntimeException::class);
+		$this->expectExceptionMessage('Bitte angeben, ob einschlägige Einträge vorliegen.');
+
+		$this->listener('kinderschutz_nachweise', true, array('act' => $act))->statusPruefen('geprueft', $this->dc(4, 'status'.$endung));
+	}
+
+	/**
+	 * Liefert die beiden Sammelaktionen samt Endung ihrer Feldnamen.
+	 *
+	 * „Mehrere bearbeiten“ hängt die ID des Datensatzes an, „Überschreiben“
+	 * nicht.
+	 *
+	 * @return array<string, array{string, string}> Je Aktion „act“ und Endung
+	 */
+	public static function sammelaktionenMitEndung(): array
+	{
+		return array(
+			'Mehrere bearbeiten' => array('editAll', '_4'),
+			'Überschreiben'      => array('overrideAll', ''),
+		);
+	}
+
+	/**
+	 * Gegenprobe: Die Einzelmaske nimmt die Art weiter aus dem Formular.
+	 *
+	 * Bei einem neuen Prüfvermerk ohne Upload wählt der Prüfer die Art im
+	 * selben Formular; sie steht beim Speichern des Status noch nicht in der
+	 * Datenbank.
+	 */
+	public function testEinzelmaskeLiestArtAusDemFormular(): void
+	{
+		$this->anfrage(array('status' => 'geprueft', 'einschlaegig' => '', 'dokumentart' => '2'));
+
+		$this->assertSame('geprueft', $this->listener('kinderschutz_nachweise', true, array('act' => 'edit', 'id' => '4'))->statusPruefen('geprueft', $this->dc(4, 'status')));
+	}
+
+	/**
 	 * „Mehrere bearbeiten“ und „Überschreiben“ bieten Person und Art nicht an.
 	 *
 	 * Im Prüfstand 5.7 standen beide in der Feldauswahl; so ließ sich ein
@@ -242,7 +295,8 @@ class NachweisListenerTest extends TestCase
 	 * Baut den Listener für eine Anfrage an ein Backend-Modul.
 	 *
 	 * Alle Dienste sind Attrappen; die Zugangsprüfung lässt durch. Der
-	 * Nachweis gehört zur Dokumentart 1.
+	 * Nachweis gehört zur Dokumentart 1, einem Führungszeugnis; jede andere
+	 * Art ist ein Ehrenkodex, der nie nach einschlägigen Einträgen fragt.
 	 *
 	 * @param string                    $do           Wert von „do“
 	 * @param bool                      $einschlaegig Die Dokumentart fragt einschlägige Einträge ab
@@ -261,7 +315,9 @@ class NachweisListenerTest extends TestCase
 		$nachweise->method('zeile')->willReturn($zeile ?? array('id' => 4, 'dokumentart' => 1));
 
 		$arten = $this->createMock(DokumentartRepository::class);
-		$arten->method('eine')->willReturn(new Dokumentart(1, 'Erweitertes Führungszeugnis', '', true, 24, $einschlaegig, $einschlaegig));
+		$arten->method('eine')->willReturnCallback(static fn (int $id): Dokumentart => 1 === $id
+			? new Dokumentart(1, 'Erweitertes Führungszeugnis', '', true, 24, $einschlaegig, $einschlaegig)
+			: new Dokumentart($id, 'Ehrenkodex', '', true, 0, false, false));
 
 		return new NachweisListener(
 			$this->createMock(Zugang::class),

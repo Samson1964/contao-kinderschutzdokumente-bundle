@@ -208,8 +208,16 @@ class NachweisListener
 	 * Prüft die Eingaben der Prüfmaske, bevor Contao den Status speichert.
 	 *
 	 * Gelesen wird aus Input::post, weil die anderen Felder in diesem Moment
-	 * noch nicht gespeichert sind. Für einen neuen Prüfvermerk kommt die
-	 * Dokumentart aus dem Formular, sonst aus der Datenbank.
+	 * noch nicht gespeichert sind. In der Einzelmaske kommt die Dokumentart
+	 * aus dem Formular, wenn es sie mitschickt (neuer Prüfvermerk), sonst aus
+	 * der Datenbank.
+	 *
+	 * In „Mehrere bearbeiten“ (act=editAll) und „Überschreiben“
+	 * (act=overrideAll) kommt die Art immer aus der Datenbank. Dort ist das
+	 * Feld gesperrt (beimLaden()) und wird nicht gespeichert; ein
+	 * mitgeschicktes dokumentart-Feld stammte also aus einer nachgebauten
+	 * Anfrage und könnte mit einer Art ohne Abfrage die Pflichtangabe
+	 * „Einschlägige Einträge“ umgehen.
 	 *
 	 * In „Mehrere bearbeiten“ hängt Contao an jeden Feldnamen die ID des
 	 * Datensatzes an (status_4, ablehnungsgrund_4). Die Endung wird deshalb
@@ -227,7 +235,9 @@ class NachweisListener
 	public function statusPruefen(mixed $wert, DataContainer $dc): mixed
 	{
 		$endung = substr((string) $dc->inputName, \strlen((string) $dc->field));
-		$artId = (int) (Input::post('dokumentart'.$endung) ?: ($this->nachweise->zeile((int) $dc->id)['dokumentart'] ?? 0));
+		$act = (string) $this->requestStack->getCurrentRequest()?->query->get('act');
+		$artAusFormular = \in_array($act, array('editAll', 'overrideAll'), true) ? null : Input::post('dokumentart'.$endung);
+		$artId = (int) ($artAusFormular ?: ($this->nachweise->zeile((int) $dc->id)['dokumentart'] ?? 0));
 		$art = $this->arten->eine($artId);
 		$fehler = Pruefung::eingabefehler((string) $wert, (string) Input::post('ablehnungsgrund'.$endung), (string) Input::post('einschlaegig'.$endung), null !== $art && $art->einschlaegigAbfragen);
 
