@@ -1,0 +1,14 @@
+# Ausgabe einer hochgeladenen Datei im Backend (Vorschau in der Prüfmaske).
+#
+# _scope: backend hängt die Route in die Backend-Firewall; ohne angemeldeten
+# Backend-Benutzer leitet Contao zur Anmeldung um. Der Pfad folgt dem in
+# Contao eingestellten Backend-Präfix (4.13 und 5.7: contao.backend.route_prefix).
+# Die Berechtigung prüft der Controller selbst.
+kinderschutz_datei:
+    path: '%contao.backend.route_prefix%/kinderschutz/datei/{id}'
+    defaults:
+        _controller: Schachbulle\ContaoKinderschutzdokumenteBundle\Controller\DateiController
+        _scope: backend
+    requirements:
+        id: '\d+'
+    methods: [GET]

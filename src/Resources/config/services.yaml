@@ -1,0 +1,62 @@
+# Alle Klassen unter src/ werden automatisch als Dienste registriert, damit
+# Listener, Cronjob, Controller und Frontend-Modul über ihre Attribute
+# (#[AsCallback], #[AsCronJob], #[AsFrontendModule] …) greifen. Ausgenommen
+# sind die Klassen, die Symfony bzw. der Contao Manager selbst laden, die
+# Ressourcen, das klassische Backend-Modul (erzeugt Contao mit „new“) und die
+# reinen Rechenregeln. Von den Regeln werden nur Berechtigung und
+# UploadPruefer gebraucht; sie stehen unten mit ihren Parametern.
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        public: false
+        bind:
+            # Alle Einträge des Bundles landen im Contao-Systemprotokoll
+            Psr\Log\LoggerInterface $protokoll: '@monolog.logger.contao.general'
+            # Name des Anfragetokens (in 4.13 und 5.7 einstellbar)
+            string $tokenName: '%contao.csrf_token_name%'
+
+    Schachbulle\ContaoKinderschutzdokumenteBundle\:
+        resource: '../../'
+        exclude:
+            - '../../ContaoKinderschutzdokumenteBundle.php'
+            - '../../ContaoManager/'
+            - '../../DependencyInjection/'
+            - '../../Resources/'
+            - '../../Regeln/'
+            - '../../Backend/UebersichtModul.php'
+
+    Schachbulle\ContaoKinderschutzdokumenteBundle\Regeln\Berechtigung:
+        arguments:
+            - '%contao_kinderschutzdokumente.hauptadmin%'
+
+    Schachbulle\ContaoKinderschutzdokumenteBundle\Regeln\UploadPruefer:
+        factory: ['Schachbulle\ContaoKinderschutzdokumenteBundle\Regeln\UploadPruefer', 'mitGrenzen']
+        arguments:
+            - '%contao_kinderschutzdokumente.upload_max_mb%'
+
+    Schachbulle\ContaoKinderschutzdokumenteBundle\Ablage\Dateiablage:
+        arguments:
+            - '%contao_kinderschutzdokumente.speicherpfad%'
+
+    # Öffentlich, weil das klassische Backend-Modul der Übersicht ihn über
+    # System::getContainer() holt
+    Schachbulle\ContaoKinderschutzdokumenteBundle\Backend\Uebersicht:
+        public: true
+
+    # Öffentlich, weil Contao die key-Callbacks aus $GLOBALS['BE_MOD'] über
+    # System::importStatic() aus dem Container holt
+    Schachbulle\ContaoKinderschutzdokumenteBundle\Backend\PapierkorbAktionen:
+        public: true
+
+    # Muss vor Contaos TableAccessVoter (Priorität 100) entscheiden; ohne
+    # autoconfigure, damit der Tag nicht ein zweites Mal ohne Priorität kommt
+    Schachbulle\ContaoKinderschutzdokumenteBundle\Sicherheit\TabellenVoter:
+        autoconfigure: false
+        tags:
+            - { name: security.voter, priority: 200 }
+
+    # Controller müssen öffentlich sein, damit der Router sie abrufen kann
+    Schachbulle\ContaoKinderschutzdokumenteBundle\Controller\DateiController:
+        public: true
+        tags: ['controller.service_arguments']
