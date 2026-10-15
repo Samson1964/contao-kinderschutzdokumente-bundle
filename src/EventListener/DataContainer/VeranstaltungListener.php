@@ -71,16 +71,24 @@ class VeranstaltungListener
 	/**
 	 * Liest die Teilnehmer aus tl_kinderschutz_teilnahme.
 	 *
-	 * @param mixed         $wert Leer, das Feld hat keine Spalte
+	 * Geliefert wird ein Array, keine serialisierte Zeichenkette: Beim
+	 * Bearbeiten nimmt das Checkbox-Widget beides, aber „Mehrere bearbeiten →
+	 * Überschreiben“ mischt das Ergebnis in den Modi „hinzufügen“ und
+	 * „entfernen“ per array_merge()/array_diff() mit der neuen Auswahl
+	 * (DC_Table::save(), 4.13 wie 5.7) und bräche bei einer Zeichenkette mit
+	 * einem TypeError ab.
+	 *
+	 * @param mixed         $wert Leer, das Feld hat keine Spalte; beim
+	 *                            Überschreiben mehrerer Datensätze ein Array
 	 * @param DataContainer $dc   Der Data Container
 	 *
-	 * @return string Serialisierte Liste der Mitglieds-IDs, wie Contao sie
-	 *                für Mehrfach-Checkboxen erwartet
+	 * @return list<string> Die Mitglieds-IDs als Zeichenketten, wie Contao
+	 *                      sie mit den Optionswerten vergleicht
 	 */
 	#[AsCallback(table: 'tl_kinderschutz_veranstaltung', target: 'fields.teilnehmer.load')]
-	public function laden(mixed $wert, DataContainer $dc): string
+	public function laden(mixed $wert, DataContainer $dc): array
 	{
-		return serialize(array_map('strval', $this->veranstaltungen->teilnehmer((int) $dc->id)));
+		return array_map('strval', $this->veranstaltungen->teilnehmer((int) $dc->id));
 	}
 
 	/**
