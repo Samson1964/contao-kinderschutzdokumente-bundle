@@ -63,6 +63,78 @@ class ZugangTest extends TestCase
 	}
 
 	/**
+	 * Ein Frontend-Mitglied, dessen ID zufällig die des Hauptadmins ist,
+	 * bekommt keinen Zugang.
+	 *
+	 * Die Mitglieds-ID 1 in tl_member hat nichts mit der Benutzer-ID 1 in
+	 * tl_user zu tun. Nur ein angemeldeter Backend-Benutzer zählt; ein
+	 * Mitglied bleibt ein Fremder, auch wenn die Zahl übereinstimmt.
+	 */
+	public function testFrontendMitgliedMitHauptadminIdHatKeinenZugang(): void
+	{
+		$zugang = $this->zugang($this->frontendMitglied(1));
+
+		$this->assertFalse($zugang->darfPruefen());
+		$this->assertFalse($zugang->istHauptadmin());
+		$this->assertSame(0, $zugang->benutzerId());
+	}
+
+	/**
+	 * verlange() weist ein Frontend-Mitglied mit der ID des Hauptadmins ab.
+	 */
+	public function testVerlangeWeistFrontendMitgliedMitHauptadminIdAb(): void
+	{
+		$this->expectException(AccessDeniedException::class);
+
+		$this->zugang($this->frontendMitglied(1))->verlange();
+	}
+
+	/**
+	 * verlange() lässt den Hauptadmin und einen freigegebenen Prüfer ohne
+	 * Ausnahme durch.
+	 *
+	 * Gegenstück zu den Abweisungen: Eine Prüfung, die immer wirft, wäre
+	 * sonst nicht zu erkennen. Der Hauptadmin braucht keine Freigabe, der
+	 * Prüfer ist kein Administrator.
+	 */
+	public function testVerlangeLaesstBerechtigteDurch(): void
+	{
+		$this->expectNotToPerformAssertions();
+
+		$this->zugang($this->backendBenutzer(1, '1', ''))->verlange();
+		$this->zugang($this->backendBenutzer(7, '', '1'))->verlange();
+	}
+
+	/**
+	 * Ohne Anmeldung wirft verlange() eine AccessDeniedException.
+	 */
+	public function testVerlangeOhneAnmeldungWirft(): void
+	{
+		$this->expectException(AccessDeniedException::class);
+
+		(new Zugang(new TokenStorage(), new Berechtigung(1)))->verlange();
+	}
+
+	/**
+	 * Baut ein Frontend-Mitglied.
+	 *
+	 * Wie beim Backend-Benutzer wird nur getRoles ersetzt, damit die ID wie
+	 * bei Contao im Datenarray des Benutzers landet.
+	 *
+	 * @param int $id ID in tl_member
+	 *
+	 * @return FrontendUser Das Mitglied
+	 */
+	private function frontendMitglied(int $id): FrontendUser
+	{
+		$mitglied = $this->getMockBuilder(FrontendUser::class)->disableOriginalConstructor()->onlyMethods(array('getRoles'))->getMock();
+		$mitglied->method('getRoles')->willReturn(array('ROLE_MEMBER'));
+		$mitglied->id = $id;
+
+		return $mitglied;
+	}
+
+	/**
 	 * Baut einen Backend-Benutzer.
 	 *
 	 * Nur getRoles wird ersetzt; __get und __set bleiben echt, damit die
