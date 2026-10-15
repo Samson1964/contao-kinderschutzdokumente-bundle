@@ -58,6 +58,21 @@ class DcaVertragTest extends TestCase
 	}
 
 	/**
+	 * Nachweise lassen sich nicht kopieren.
+	 *
+	 * Eine Kopie übernähme die Spalte „datei“: Zwei Datensätze zeigten auf
+	 * dieselbe Datei, und wer sie über einen davon endgültig löscht, nimmt
+	 * sie dem anderen mit. Im Prüfstand 5.7 bot die Prüfmaske dafür
+	 * „Speichern und duplizieren“ an, die Kopie lag sofort im Papierkorb.
+	 */
+	public function testNachweiseSindNichtKopierbar(): void
+	{
+		$config = $this->ladeDca('tl_kinderschutz')['config'];
+
+		$this->assertTrue($config['notCopyable'] ?? false, 'tl_kinderschutz muss notCopyable tragen.');
+	}
+
+	/**
 	 * Die eigenen Tabellen haben leere Contao-Berechtigungen.
 	 *
 	 * Die Kinderschutz-Module schalten Contaos Modul- und Tabellenrechte ab

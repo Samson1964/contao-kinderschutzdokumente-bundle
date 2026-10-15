@@ -42,6 +42,9 @@ $GLOBALS['TL_DCA']['tl_kinderschutz'] = array
 	(
 		'dataContainer' => DC_Table::class,
 		'permissions'   => array(),
+		// Eine Kopie zeigte auf dieselbe Datei; endgültiges Löschen über den
+		// einen Datensatz nähme sie dem anderen mit
+		'notCopyable'   => true,
 		'sql'           => array
 		(
 			'keys' => array
