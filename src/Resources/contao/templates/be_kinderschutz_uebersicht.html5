@@ -1,0 +1,67 @@
+<?php
+
+use Contao\Date;
+use Contao\StringUtil;
+
+$t = $GLOBALS['TL_LANG']['MSC']['kinderschutz_be'];
+?>
+<div class="ks-uebersicht">
+  <form method="get" action="<?= StringUtil::specialchars($this->aktion) ?>" class="ks-auswahl">
+    <input type="hidden" name="do" value="kinderschutz_uebersicht">
+    <label for="ks-veranstaltung"><?= $t['auswahl'] ?></label>
+    <select name="veranstaltung" id="ks-veranstaltung" class="tl_select">
+      <option value="0"><?= $t['allePersonen'] ?></option>
+      <?php foreach ($this->veranstaltungen as $veranstaltung): ?>
+        <option value="<?= (int) $veranstaltung['id'] ?>"<?= (int) $veranstaltung['id'] === $this->gewaehlt ? ' selected' : '' ?>><?= StringUtil::specialchars($veranstaltung['name']) ?> (<?= Date::parse('d.m.Y', (int) $veranstaltung['startDate']) ?>)</option>
+      <?php endforeach; ?>
+    </select>
+    <select name="filter" class="tl_select" aria-label="Filter">
+      <option value="">–</option>
+      <option value="unvollstaendig"<?= 'unvollstaendig' === $this->filter ? ' selected' : '' ?>><?= $t['nurUnvollstaendig'] ?></option>
+      <option value="wartend"<?= 'wartend' === $this->filter ? ' selected' : '' ?>><?= $t['nurWartend'] ?></option>
+    </select>
+    <button type="submit" class="tl_submit"><?= $t['anzeigen'] ?></button>
+  </form>
+
+  <p class="ks-zaehler">
+    <?= sprintf($t['stichtag'], Date::parse('d.m.Y', $this->stichtag)) ?> ·
+    <?= sprintf($t['zaehler'], $this->zaehler['vollstaendig'], $this->zaehler['unvollstaendig'], $this->zaehler['wartend']) ?>
+  </p>
+
+  <?php if (empty($this->arten)): ?>
+    <p class="tl_info"><?= $t['keineArten'] ?></p>
+  <?php elseif (empty($this->zeilen)): ?>
+    <p class="tl_info"><?= $t['keinePersonen'] ?></p>
+  <?php else: ?>
+    <div class="ks-tabelle">
+      <table class="tl_listing">
+        <thead>
+          <tr>
+            <th class="tl_folder_tlist"><?= $t['person'] ?></th>
+            <?php foreach ($this->arten as $art): ?>
+              <th class="tl_folder_tlist"><?= StringUtil::specialchars($art->name) ?></th>
+            <?php endforeach; ?>
+            <th class="tl_folder_tlist"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach ($this->zeilen as $zeile): ?>
+            <tr>
+              <td class="tl_file_list"><a href="<?= StringUtil::specialchars($zeile['nachweise']) ?>" title="<?= $t['alleNachweise'] ?>"><?= StringUtil::specialchars($zeile['name']) ?></a></td>
+              <?php foreach ($zeile['zellen'] as $zelle): ?>
+                <td class="tl_file_list ks-zelle <?= $zelle['klasse'] ?>">
+                  <a href="<?= StringUtil::specialchars($zelle['link']) ?>" title="<?= StringUtil::specialchars($zelle['titel']) ?>">
+                    <span class="ks-symbol" aria-hidden="true"><?= $zelle['symbol'] ?></span> <?= $zelle['text'] ?>
+                    <?php if (null !== $zelle['datum']): ?><br><small><?= sprintf($t['gueltigBis'], Date::parse('d.m.Y', $zelle['datum'])) ?></small><?php endif; ?>
+                    <?php if ($zelle['wartet'] && 'eingereicht' !== $zelle['status']): ?><br><small class="ks-wartet">✉ <?= $GLOBALS['TL_LANG']['MSC']['kinderschutz_status']['wartet'] ?></small><?php endif; ?>
+                  </a>
+                </td>
+              <?php endforeach; ?>
+              <td class="tl_file_list ks-gesamt"><?= $zeile['vollstaendig'] ? '✔ '.$t['vollstaendig'] : '✖ '.$t['unvollstaendig'] ?></td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+  <?php endif; ?>
+</div>

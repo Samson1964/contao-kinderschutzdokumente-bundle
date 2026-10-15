@@ -1,0 +1,94 @@
+/*
+ * Kinderschutzdokumente-Bundle: Matrix, Prüfmaske und Papierkorb im Backend.
+ *
+ * Farben als Hintergrundtöne mit dunkler Schrift; jede Zelle trägt zusätzlich
+ * ein Symbol und Text, damit die Farbe nie das einzige Merkmal ist. Contao 5
+ * setzt im Dunkelmodus data-color-scheme="dark" am html-Element.
+ */
+.ks-uebersicht {
+	--ks-gruen: #dff3e4;
+	--ks-gelb: #fff4cc;
+	--ks-rot: #fde2e1;
+	--ks-dunkelrot: #f5c2c0;
+	--ks-blau: #dfeefc;
+	--ks-grau: #f0f0f0;
+	--ks-schrift: #1e1e1e;
+	padding: 15px;
+}
+
+html[data-color-scheme="dark"] .ks-uebersicht {
+	--ks-gruen: #1f3d28;
+	--ks-gelb: #4a3f12;
+	--ks-rot: #4d2422;
+	--ks-dunkelrot: #6b1f1c;
+	--ks-blau: #1d3550;
+	--ks-grau: #2c2c2c;
+	--ks-schrift: #f0f0f0;
+}
+
+.ks-auswahl {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: center;
+	margin-bottom: 12px;
+}
+
+.ks-auswahl select {
+	max-width: 360px;
+}
+
+.ks-zaehler {
+	margin: 0 0 12px;
+}
+
+.ks-tabelle {
+	overflow-x: auto;
+}
+
+.ks-tabelle table {
+	width: 100%;
+}
+
+.ks-zelle {
+	color: var(--ks-schrift);
+	white-space: nowrap;
+}
+
+.ks-zelle a {
+	display: block;
+	color: inherit;
+}
+
+.ks-gueltig { background: var(--ks-gruen); }
+.ks-laeuftAb { background: var(--ks-gelb); }
+.ks-eingereicht { background: var(--ks-blau); }
+.ks-fehlt, .ks-abgelehnt, .ks-abgelaufen { background: var(--ks-rot); }
+.ks-fehlt.ks-freiwillig { background: var(--ks-grau); }
+.ks-beanstandet { background: var(--ks-dunkelrot); font-weight: bold; }
+
+.ks-symbol {
+	display: inline-block;
+	width: 1.2em;
+	text-align: center;
+}
+
+.ks-wartet {
+	font-weight: bold;
+}
+
+.ks-vorschau p {
+	margin: 0 0 8px;
+}
+
+.ks-pdf {
+	width: 100%;
+	height: 70vh;
+	border: 1px solid #ccc;
+}
+
+.ks-bild {
+	max-width: 100%;
+	max-height: 70vh;
+	border: 1px solid #ccc;
+}
