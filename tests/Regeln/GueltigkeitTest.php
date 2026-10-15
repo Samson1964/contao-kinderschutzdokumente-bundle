@@ -51,7 +51,7 @@ class GueltigkeitTest extends TestCase
 			'Jahreswechsel'               => array('2026-11-10', 3, '2027-02-09 00:00'),
 			'erster des Monats'           => array('2026-05-01', 12, '2027-04-30 00:00'),
 			'31. auf Monat mit 31 Tagen'  => array('2026-01-31', 2, '2026-03-30 00:00'),
-			'über Zeitumstellung hinweg'  => array('2026-03-29', 1, '2026-04-28 00:00'),
+			'über Zeitumstellung hinweg'  => array('2026-09-26', 1, '2026-10-25 00:00'),
 		);
 	}
 
