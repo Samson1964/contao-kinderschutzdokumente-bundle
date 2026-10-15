@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace Schachbulle\ContaoKinderschutzdokumenteBundle\Backend;
 
 use Contao\BackendModule;
+use Contao\Message;
 use Contao\System;
 
 /**
@@ -31,7 +32,18 @@ class UebersichtModul extends BackendModule
 	protected $strTemplate = 'be_kinderschutz_uebersicht';
 
 	/**
-	 * Füllt das Template mit der Matrix.
+	 * Füllt das Template mit der Matrix und den anstehenden Meldungen.
+	 *
+	 * Ein Modul mit „callback“ muss Contaos Meldungen selbst ausgeben;
+	 * BackendMain tut das nur auf der Startseite, DC_Table nur in seinen
+	 * eigenen Ansichten. Die Übersicht ist aber oft die Folgeseite der
+	 * Prüfmaske („Speichern und schließen“ springt zur Matrix zurück), und
+	 * dort muss etwa der Hinweis auf eine gescheiterte Ablehnungsmail
+	 * erscheinen. Die Meldungen werden erst nach der Zugangsprüfung in
+	 * daten() abgeholt, damit ein Unberechtigter sie nicht verbraucht.
+	 *
+	 * Seiteneffekt: Message::generate() leert die ausgegebenen Meldungen im
+	 * Flash-Speicher der Sitzung.
 	 *
 	 * @throws \Contao\CoreBundle\Exception\AccessDeniedException Ohne Berechtigung
 	 */
@@ -45,5 +57,7 @@ class UebersichtModul extends BackendModule
 		foreach ($container->get(Uebersicht::class)->daten($request, time()) as $name => $wert) {
 			$this->Template->$name = $wert;
 		}
+
+		$this->Template->meldungen = Message::generate();
 	}
 }

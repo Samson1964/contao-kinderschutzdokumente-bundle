@@ -23,6 +23,7 @@ use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Papierkorb;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Pruefung;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Zugang;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\EventListener\DataContainer\NachweisListener;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\EventListener\MeldungListener;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Regeln\Dokumentart;
 use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\HttpFoundation\Request;
@@ -272,6 +273,7 @@ class NachweisListenerTest extends TestCase
 			$this->createMock(Einstellungen::class),
 			$this->createMock(UrlGeneratorInterface::class),
 			$anfragen,
+			new MeldungListener(),
 		);
 	}
 }

@@ -25,6 +25,7 @@ use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Einstellungen;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Papierkorb;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Pruefung;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Zugang;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\EventListener\MeldungListener;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Regeln\Nachweis;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -46,6 +47,8 @@ class NachweisListener
 	 * @param Einstellungen         $einstellungen Kinderschutzpflichtige Gruppen
 	 * @param UrlGeneratorInterface $router        Datei-Route und Rücksprung
 	 * @param RequestStack          $requestStack  Liefert do, act und id
+	 * @param MeldungListener       $meldungen     Bringt Fehlerhinweise des Speicherns
+	 *                                             auf die Folgeseite
 	 */
 	public function __construct(
 		private readonly Zugang $zugang,
@@ -57,6 +60,7 @@ class NachweisListener
 		private readonly Einstellungen $einstellungen,
 		private readonly UrlGeneratorInterface $router,
 		private readonly RequestStack $requestStack,
+		private readonly MeldungListener $meldungen,
 	) {
 	}
 
@@ -237,9 +241,21 @@ class NachweisListener
 	/**
 	 * Zieht nach dem Speichern die Folgen der Entscheidung.
 	 *
-	 * Konnte die Ablehnungsmail nicht verschickt werden, erscheint ein
-	 * Fehlerhinweis über der Liste, damit der Prüfer die Person selbst
-	 * informiert; die Entscheidung bleibt trotzdem gespeichert.
+	 * Konnte die Ablehnungsmail nicht verschickt werden, erscheint auf der
+	 * nächsten Backend-Seite ein Fehlerhinweis, damit der Prüfer die Person
+	 * selbst informiert; die Entscheidung bleibt trotzdem gespeichert.
+	 *
+	 * Der Hinweis geht nicht direkt an Message::addError(), sondern wird im
+	 * MeldungListener vorgemerkt. Bei „Speichern und schließen“ (ebenso
+	 * „… und neu“, „… und bearbeiten“, „… und duplizieren“) ruft DC_Table
+	 * nach diesem Callback Message::reset() auf, und ein direkt abgelegter
+	 * Hinweis wäre vor der Weiterleitung wieder gelöscht. Der MeldungListener
+	 * übergibt ihn erst am Ende der Anfrage an Contao. Die Folgeseite ist je
+	 * nach Knopf die Prüfmaske, die Nachweisliste oder die Übersicht.
+	 *
+	 * Seiteneffekte: über Pruefung::nachSpeichern() Schreibzugriffe auf
+	 * tl_kinderschutz, Papierkorb, Systemprotokoll und Mailversand; bei
+	 * gescheiterter Mail eine Vormerkung im MeldungListener.
 	 *
 	 * @param DataContainer $dc Der Data Container
 	 */
@@ -247,7 +263,7 @@ class NachweisListener
 	public function nachSpeichern(DataContainer $dc): void
 	{
 		if (!$this->pruefung->nachSpeichern((int) $dc->id, $this->zugang->benutzerId(), time())) {
-			Message::addError($GLOBALS['TL_LANG']['MSC']['kinderschutz_be']['mailGescheitert']);
+			$this->meldungen->vormerken($GLOBALS['TL_LANG']['MSC']['kinderschutz_be']['mailGescheitert']);
 		}
 	}
 
