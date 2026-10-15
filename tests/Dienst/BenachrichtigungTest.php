@@ -11,9 +11,12 @@ declare(strict_types=1);
 
 namespace Schachbulle\ContaoKinderschutzdokumenteBundle\Tests\Dienst;
 
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Benachrichtigung;
+use Symfony\Component\EventDispatcher\EventDispatcher;
+use Symfony\Component\Mailer\Event\MessageEvent;
 use Symfony\Component\Mailer\Exception\InvalidArgumentException as MailerInvalidArgumentException;
 use Symfony\Component\Mailer\Exception\TransportException;
 use Symfony\Component\Mailer\SentMessage;
@@ -352,6 +355,52 @@ class BenachrichtigungTest extends Testhilfen
 	}
 
 	/**
+	 * Eine verworfene Mail gilt nicht als verschickt.
+	 *
+	 * TransportInterface::send() liefert null, wenn ein Listener die Mail
+	 * vor dem Versand verworfen hat; geworfen wird dabei nichts. Bisher
+	 * meldete die Benachrichtigung trotzdem Erfolg, der Prüfer erfuhr nichts
+	 * und der Cronjob setzte seinen Versandmerker. Jetzt: false und genau
+	 * ein Protokolleintrag ohne Adresse.
+	 */
+	public function testVerworfeneMailGiltNichtAlsVerschickt(): void
+	{
+		$transport = $this->createMock(TransportInterface::class);
+		$transport->expects($this->once())->method('send')->willReturn(null);
+
+		$this->assertFalse($this->dienst($this->protokoll(1), $transport)->abgelehnt(self::ANNA, 'Ehrenkodex', 'x'));
+
+		$this->assertSame(array('Kinderschutz: Mail „abgelehnt“ an 1 Empfänger nicht verschickt (vor dem Versand verworfen)'), $this->meldungen);
+		$this->assertProtokollOhneAdresse($this->meldungen[0]);
+	}
+
+	/**
+	 * Ein echter Transport verwirft die Mail, wenn ein Listener es verlangt.
+	 *
+	 * Nachgestellt, wie es in Symfony 7.4 geschieht: Ein Listener auf
+	 * MessageEvent ruft reject() auf, AbstractTransport::send() liefert null
+	 * und ruft doSend() gar nicht erst auf. Symfony 5.4 (Contao 4.13) kennt
+	 * reject() nicht; dort entfällt der Test.
+	 */
+	public function testVerwerfenderListenerImEchtenTransport(): void
+	{
+		if (!method_exists(MessageEvent::class, 'reject')) {
+			$this->markTestSkipped('MessageEvent::reject() gibt es erst ab Symfony 6.2.');
+		}
+
+		$verteiler = new EventDispatcher();
+		$verteiler->addListener(MessageEvent::class, static function (MessageEvent $event): void {
+			$event->reject();
+		});
+		$transport = $this->echterTransport($verteiler);
+
+		$this->assertFalse($this->dienst($this->protokoll(1), $transport)->neueEinreichung(self::ANNA, 'Ehrenkodex', array('astrid@example.org', 'haupt@example.org')));
+
+		$this->assertSame(array(), $transport->gesendet);
+		$this->assertSame(array('Kinderschutz: Mail „neu“ an 2 Empfänger nicht verschickt (vor dem Versand verworfen)'), $this->meldungen);
+	}
+
+	/**
 	 * Der Dienst mit sammelndem Transport.
 	 *
 	 * @param LoggerInterface|null    $protokoll Das Protokoll; ohne Angabe ein NullLogger
@@ -374,11 +423,14 @@ class BenachrichtigungTest extends Testhilfen
 	 * es vor dem Gespräch mit dem Mailserver tut. Angenommene Mails stehen in
 	 * der öffentlichen Eigenschaft $gesendet.
 	 *
+	 * @param EventDispatcherInterface|null $verteiler Ereignisverteiler für MessageEvent;
+	 *                                                 ohne Angabe läuft der Versand ohne Ereignisse
+	 *
 	 * @return AbstractTransport Der Transport mit der Eigenschaft $gesendet (list<SentMessage>)
 	 */
-	private function echterTransport(): AbstractTransport
+	private function echterTransport(?EventDispatcherInterface $verteiler = null): AbstractTransport
 	{
-		return new class() extends AbstractTransport {
+		return new class($verteiler) extends AbstractTransport {
 			/** @var list<SentMessage> */
 			public array $gesendet = array();
 

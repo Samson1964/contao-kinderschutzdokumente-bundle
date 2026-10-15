@@ -35,9 +35,10 @@ use Symfony\Component\Mime\Exception\ExceptionInterface as MimeExceptionInterfac
  * Ein gescheiterter Versand bricht keinen Ablauf ab, auch nicht bei einer
  * RFC-widrigen Mailadresse. Er wird protokolliert und mit false gemeldet,
  * damit der Cronjob den Versandmerker nicht setzt und es am nächsten Tag
- * erneut versucht. Das Systemprotokoll bekommt dabei nie eine Mailadresse
- * und keinen Fehlertext des Mailservers zu sehen, nur Mailart, Zahl der
- * Empfänger und Fehlerklasse.
+ * erneut versucht. Als gescheitert gilt auch eine Mail, die ein Listener
+ * vor dem Versand verworfen hat. Das Systemprotokoll bekommt dabei nie eine
+ * Mailadresse und keinen Fehlertext des Mailservers zu sehen, nur Mailart,
+ * Zahl der Empfänger und Fehlerklasse bzw. „vor dem Versand verworfen“.
  *
  * Versandweg: Die Mails gehen synchron über den Standardtransport des
  * Mailers (TransportInterface, im FrameworkBundle der Dienst
@@ -210,6 +211,12 @@ class Benachrichtigung
 	 * im Transport entsteht und eigene wirft – etwa bei einem Umlaut vor dem
 	 * @ der Absenderadresse, den Email noch annimmt.
 	 *
+	 * Liefert der Transport statt einer SentMessage null, hat ein Listener
+	 * die Mail vor dem Versand verworfen (TransportInterface erlaubt das; in
+	 * Symfony 7.4 nach MessageEvent::reject(), 5.4 kennt das nicht). Das
+	 * zählt wie jeder andere Fehlschlag: Protokolleintrag ohne Adresse und
+	 * false, damit der Prüfer bzw. der Cronjob es erfährt.
+	 *
 	 * Seiteneffekte: initialisiert das Contao-Framework, lädt die deutsche
 	 * Sprachdatei in $GLOBALS['TL_LANG'], verbindet sich synchron mit dem
 	 * Mailserver (die Anfrage wartet also auf ihn) und schreibt bei
@@ -223,9 +230,10 @@ class Benachrichtigung
 	 * @param string                $vorlage    Schlüssel unter kinderschutz_mail
 	 * @param array<string, string> $werte      Platzhalter und ihre Werte
 	 *
-	 * @return bool true, wenn der Transport die Mail angenommen hat; false,
-	 *              wenn Absender oder Empfänger fehlen oder Aufbau oder
-	 *              Versand scheiterten
+	 * @return bool true, wenn der Transport die Mail angenommen und
+	 *              verschickt hat; false, wenn Absender oder Empfänger
+	 *              fehlen, Aufbau oder Versand scheiterten oder die Mail vor
+	 *              dem Versand verworfen wurde
 	 */
 	private function sende(array $empfaenger, string $vorlage, array $werte): bool
 	{
@@ -249,9 +257,18 @@ class Benachrichtigung
 				->subject(strtr((string) $text[0], $werte))
 				->text(strtr((string) $text[1], $werte));
 
-			$this->mailer->send($mail);
+			$gesendet = $this->mailer->send($mail);
 		} catch (MailerExceptionInterface|MimeExceptionInterface $fehler) {
 			$this->protokoll->error(sprintf('Kinderschutz: Mail „%s“ an %d Empfänger nicht verschickt (%s)', $vorlage, count($empfaenger), $fehler::class));
+
+			return false;
+		}
+
+		// null heißt: Ein Listener auf MessageEvent hat die Mail verworfen
+		// (Symfony 7.4 AbstractTransport::send() nach $event->reject()).
+		// Hinausgegangen ist dann nichts, auch wenn nichts geworfen wurde.
+		if (null === $gesendet) {
+			$this->protokoll->error(sprintf('Kinderschutz: Mail „%s“ an %d Empfänger nicht verschickt (vor dem Versand verworfen)', $vorlage, count($empfaenger)));
 
 			return false;
 		}
