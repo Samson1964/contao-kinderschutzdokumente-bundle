@@ -205,19 +205,27 @@ und Tabellenrechte sind für diese Module abgeschaltet; die Freigabe allein gen�
   Buchstaben oder `mode` andere als Buchstaben und Ziffern (etwa Entitäten oder Steuerzeichen),
   gibt es ebenfalls 403.
 * Die Dateien liefert nur eine eigene Backend-Route aus; jeder Abruf steht im Systemprotokoll.
+* Unter **System → Wiederherstellen** (`tl_undo`) sind gelöschte Kinderschutz-Datensätze
+  (Nachweise, Anträge, Dokumentarten, Veranstaltungen) für alle ohne Freigabe **unsichtbar und
+  gesperrt** – auch für Administratoren, denen Contao dort sonst alle Einträge zeigt. Sie fehlen
+  in der Liste, in der Filterauswahl und in der Suche; „Details“, „Wiederherstellen“ und jede
+  andere Aktion auf einen solchen Eintrag über eine von Hand gebaute Adresse
+  (`act=show&id=…`, `act=undo&id=…`) ergeben 403, ebenso eine ID aus anderen Zeichen als
+  Ziffern. Hauptadmin und Prüfer sehen und holen sie zurück wie bisher (Nicht-Administratoren
+  wie im Kern nur die eigenen Schritte).
 
 Das schützt vor Neugier im Backend, nicht vor einem Administrator mit bösen Absichten (er kann
-etwa Erweiterungen installieren) und nicht vor Zugriff auf Server oder Datenbank. Bekannte Lücken
-über Contaos „Wiederherstellen“ (`tl_undo`):
+etwa Erweiterungen installieren) und nicht vor Zugriff auf Server oder Datenbank. Bekannte
+Grenzen rund um Contaos „Wiederherstellen“ (`tl_undo`):
 
 * Löscht ein Prüfer einen Nachweis oder einen Antrag, legt Contao vorher eine Kopie in
-  `tl_undo` ab, im Klartext. **Contao-Administratoren sehen gelöschte Nachweise und Anträge**
-  unter System → Wiederherstellen samt Detailansicht, solange die „Speicherzeit für
-  Undo-Schritte“ läuft (`undoPeriod`, Vorgabe 2 592 000 Sekunden = 30 Tage) – auch ohne
-  Prüferfreigabe. Beim Nachweis gehören dazu „einschlägige Einträge“, Ablehnungsgrund und
-  Bemerkung, beim Antrag Mitglied, „Wofür“, Stand und Begründung einer Ablehnung. Das ist
-  Verhalten des Kerns und hier bewusst beschrieben statt verhindert. Wer das nicht will, kürzt
-  diese Speicherzeit (System → Einstellungen → Speicherzeiten; gilt für die ganze Installation).
+  `tl_undo` ab, im Klartext. Sie bleibt dort, solange die „Speicherzeit für Undo-Schritte“
+  läuft (`undoPeriod`, Vorgabe 2 592 000 Sekunden = 30 Tage). Beim Nachweis gehören dazu
+  „einschlägige Einträge“, Ablehnungsgrund, Bemerkung und Dateiname, beim Antrag Mitglied,
+  „Wofür“, Stand und Begründung einer Ablehnung. Im Backend sehen sie nur Hauptadmin und
+  Prüfer; **wer direkt auf die Datenbank zugreift** (phpMyAdmin, Sicherungen), sieht sie
+  trotzdem. Wer das nicht will, kürzt diese Speicherzeit (System → Einstellungen →
+  Speicherzeiten; gilt für die ganze Installation).
 * Beim **gesperrten Löschversuch** eines Nachweises mit Datei (ebenso einer Dokumentart mit
   Nachweisen) bleibt trotzdem eine Kopie in `tl_undo`, weil Contao sie vor der Löschsperre des
   Bundles anlegt. Der Datensatz selbst bleibt bestehen.

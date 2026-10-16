@@ -1,5 +1,9 @@
 # Änderungen
 
+## Version 1.2.1 (2026-10-16)
+
+* Fix: Gelöschte Kinderschutz-Datensätze (Nachweise, Anträge, Dokumentarten, Veranstaltungen) sind unter System → Wiederherstellen für alle ohne Prüferfreigabe unsichtbar und gesperrt – auch für Administratoren, denen Contao dort alle Einträge zeigt. Sie fehlen in Liste, Filterauswahl und Suche; „Details“, „Wiederherstellen“ und jede andere Aktion auf einen solchen Eintrag über eine von Hand gebaute Adresse ergeben 403. Hauptadmin und Prüfer sind nicht betroffen. Die Kopien bleiben bis zum Ablauf der Speicherzeit für Undo-Schritte in der Datenbank
+
 ## Version 1.2.0 (2026-10-16)
 
 * Add: Antrag auf Freischaltung im Frontend-Modul „Meine Unterlagen“ für Mitglieder außerhalb der Freischaltgruppe, mit Begründung („Wofür“, höchstens 500 Zeichen) und kommenden wählbaren Veranstaltungen; Mail an die Prüfer. Ein offener Antrag wird samt Veranstaltungen angezeigt, ein abgelehnter mit Begründung und neuem Formular
