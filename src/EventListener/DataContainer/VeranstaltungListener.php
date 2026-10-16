@@ -28,7 +28,7 @@ class VeranstaltungListener
 	/**
 	 * @param VeranstaltungRepository $veranstaltungen Teilnahmen
 	 * @param PersonenRepository      $personen        Namen der Mitglieder
-	 * @param Einstellungen           $einstellungen   Kinderschutzpflichtige Gruppen
+	 * @param Einstellungen           $einstellungen   Gruppe der freigeschalteten Mitglieder
 	 */
 	public function __construct(
 		private readonly VeranstaltungRepository $veranstaltungen,
@@ -40,7 +40,7 @@ class VeranstaltungListener
 	/**
 	 * Liefert die wählbaren Teilnehmer.
 	 *
-	 * Angeboten werden die Mitglieder der kinderschutzpflichtigen Gruppen und
+	 * Angeboten werden die Mitglieder der Gruppe der freigeschalteten Mitglieder und
 	 * zusätzlich alle bereits eingetragenen – sonst würde eine Person, die
 	 * inzwischen aus der Gruppe gefallen ist, beim nächsten Speichern
 	 * stillschweigend ausgetragen.

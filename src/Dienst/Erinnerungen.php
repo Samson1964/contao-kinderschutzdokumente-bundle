@@ -89,7 +89,7 @@ class Erinnerungen
 	 * Verschickt die Mails über fehlende Unterlagen vor Veranstaltungen.
 	 *
 	 * Angeschrieben werden nur Teilnehmer, die noch aktive Mitglieder einer
-	 * kinderschutzpflichtigen Gruppe sind; wer gesperrt oder ausgetreten ist,
+	 * Gruppe der freigeschalteten Mitglieder sind; wer gesperrt oder ausgetreten ist,
 	 * bekommt keine Mail.
 	 *
 	 * @param int $jetzt Aktueller Zeitpunkt

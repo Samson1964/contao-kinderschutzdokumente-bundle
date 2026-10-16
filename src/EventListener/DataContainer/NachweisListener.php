@@ -47,7 +47,7 @@ class NachweisListener
 	 * @param DokumentartRepository $arten         Namen und Regeln der Arten
 	 * @param PersonenRepository    $personen      Namen von Mitgliedern und Prüfern
 	 * @param Papierkorb            $papierkorb    Löschtermin im Papierkorb
-	 * @param Einstellungen         $einstellungen Kinderschutzpflichtige Gruppen
+	 * @param Einstellungen         $einstellungen Gruppe der freigeschalteten Mitglieder
 	 * @param UrlGeneratorInterface $router        Datei-Route und Rücksprung
 	 * @param MeldungListener       $meldungen     Bringt Fehlerhinweise des Speicherns
 	 *                                             auf die Folgeseite
@@ -159,8 +159,8 @@ class NachweisListener
 	 *
 	 * @param DataContainer|null $dc Der Data Container
 	 *
-	 * @return array<int, string> Mitglieder der kinderschutzpflichtigen Gruppen,
-	 *                            dazu die bereits eingetragene Person
+	 * @return array<int, string> Mitglieder der Gruppe der freigeschalteten
+	 *                            Mitglieder, dazu die bereits eingetragene Person
 	 */
 	#[AsCallback(table: 'tl_kinderschutz', target: 'fields.member.options')]
 	public function mitglieder(?DataContainer $dc = null): array

@@ -14,7 +14,7 @@ $GLOBALS['TL_LANG']['tl_kinderschutz']['person_legend'] = 'Person und Dokumentar
 $GLOBALS['TL_LANG']['tl_kinderschutz']['pruefung_legend'] = 'Prüfung';
 $GLOBALS['TL_LANG']['tl_kinderschutz']['intern_legend'] = 'Interne Bemerkung';
 
-$GLOBALS['TL_LANG']['tl_kinderschutz']['member'] = array('Person', 'Mitglied aus einer der kinderschutzpflichtigen Gruppen.');
+$GLOBALS['TL_LANG']['tl_kinderschutz']['member'] = array('Person', 'Mitglied der Gruppe der freigeschalteten Mitglieder.');
 $GLOBALS['TL_LANG']['tl_kinderschutz']['dokumentart'] = array('Dokumentart', 'Welche Unterlage dieser Nachweis belegt.');
 $GLOBALS['TL_LANG']['tl_kinderschutz']['status'] = array('Entscheidung', '„Geprüft“ setzt die Gültigkeit; „Abgelehnt“ schickt der Person die Begründung.');
 $GLOBALS['TL_LANG']['tl_kinderschutz']['ausstellungsdatum'] = array('Ausstellungsdatum', 'Datum auf dem Dokument; die Gültigkeit läuft ab diesem Tag.');

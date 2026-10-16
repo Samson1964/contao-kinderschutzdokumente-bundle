@@ -104,7 +104,7 @@ class PersonenRepository
 	 * @param list<int> $gruppen IDs der Mitgliedergruppen
 	 * @param int       $jetzt   Aktueller Zeitpunkt
 	 *
-	 * @return bool true, wenn das Mitglied kinderschutzpflichtig ist
+	 * @return bool true, wenn das Mitglied aktiv und in einer der Gruppen ist
 	 */
 	public function istInGruppen(int $id, array $gruppen, int $jetzt): bool
 	{

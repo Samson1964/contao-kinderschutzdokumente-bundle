@@ -107,8 +107,8 @@ class Statusdienst
 	 * Berechnet die Matrix für die Übersicht im Backend.
 	 *
 	 * @param int|null $veranstaltung ID einer Veranstaltung, oder null für alle
-	 *                                Mitglieder der kinderschutzpflichtigen
-	 *                                Gruppen mit Stichtag heute
+	 *                                Mitglieder der Gruppe der
+	 *                                freigeschalteten Mitglieder mit Stichtag heute
 	 * @param int      $jetzt         Aktueller Zeitpunkt
 	 *
 	 * @return array{

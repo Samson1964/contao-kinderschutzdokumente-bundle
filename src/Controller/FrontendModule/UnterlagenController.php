@@ -58,7 +58,7 @@ class UnterlagenController extends AbstractFrontendModuleController
 	 * @param Einreichung             $einreichung     Nimmt Uploads entgegen
 	 * @param VeranstaltungRepository $veranstaltungen An- und Abmeldung
 	 * @param PersonenRepository      $personen        Gruppenzugehörigkeit
-	 * @param Einstellungen           $einstellungen   Kinderschutzpflichtige Gruppen
+	 * @param Einstellungen           $einstellungen   Gruppe der freigeschalteten Mitglieder
 	 * @param UploadPruefer           $pruefer         Nennt die Höchstgröße
 	 * @param TokenStorageInterface   $tokenStorage    Liefert das angemeldete Mitglied
 	 * @param RequestStack            $requestStack    Liefert die Seitenadresse
