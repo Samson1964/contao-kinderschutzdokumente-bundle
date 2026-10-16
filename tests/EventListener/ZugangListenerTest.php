@@ -58,9 +58,13 @@ class ZugangListenerTest extends TestCase
 	public static function verschiebeaktionen(): array
 	{
 		return array(
-			'Ausschneiden'                 => array(array('act' => 'cut', 'id' => '1', 'pid' => '0', 'mode' => '2')),
-			'Mehrere ausschneiden'         => array(array('act' => 'cutAll')),
+			'Ausschneiden'               => array(array('act' => 'cut', 'id' => '1', 'pid' => '0', 'mode' => '2')),
+			'Mehrere ausschneiden'       => array(array('act' => 'cutAll')),
 			'Einfügen nach Ausschneiden' => array(array('act' => 'paste', 'mode' => 'cut')),
+			// Gemischte Schreibweise: $dc->$act() ist davon unabhängig
+			'Ausschneiden gemischt'      => array(array('act' => 'CutAll')),
+			// Contao 4.13 normalisiert „act“ in Input::get() zu „cut“
+			'Ausschneiden Entität'       => array(array('act' => 'cu&#116;')),
 		);
 	}
 
@@ -86,10 +90,10 @@ class ZugangListenerTest extends TestCase
 	public static function erlaubteAktionen(): array
 	{
 		return array(
-			'Liste'                    => array(array()),
-			'Bearbeiten'               => array(array('act' => 'edit', 'id' => '1')),
-			'Einfügen nach Kopieren'   => array(array('act' => 'paste', 'mode' => 'copy')),
-			'Einfügen ohne Modus'      => array(array('act' => 'paste')),
+			'Liste'                  => array(array()),
+			'Bearbeiten'             => array(array('act' => 'edit', 'id' => '1')),
+			'Einfügen nach Kopieren' => array(array('act' => 'paste', 'mode' => 'copy')),
+			'Einfügen ohne Modus'    => array(array('act' => 'paste')),
 		);
 	}
 

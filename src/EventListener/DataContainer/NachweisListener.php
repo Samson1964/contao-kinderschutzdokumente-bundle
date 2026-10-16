@@ -27,6 +27,7 @@ use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Pruefung;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Zugang;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\EventListener\MeldungListener;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Regeln\Nachweis;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\Sicherheit\Aktion;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Sicherheit\Kopiersperre;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Sicherheit\Verschiebesperre;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -112,9 +113,10 @@ class NachweisListener
 		Verschiebesperre::pruefe($anfrage);
 		Kopiersperre::pruefe($anfrage);
 		$do = (string) $anfrage?->query->get('do');
-		// Kleingeschrieben: „act=editall“ führt über $dc->$act() ebenfalls
-		// DC_Table::editAll() aus und darf Person und Art nicht freigeben.
-		$act = Verschiebesperre::aktion($anfrage);
+		// Über Aktion: „act=editall“ führt über $dc->$act() ebenfalls
+		// DC_Table::editAll() aus und darf Person und Art nicht freigeben;
+		// Werte aus anderen Zeichen (4.13 normalisiert sie) ergeben 403.
+		$act = Aktion::act($anfrage);
 		$dca = &$GLOBALS['TL_DCA']['tl_kinderschutz'];
 
 		if ('kinderschutz_papierkorb' === $do) {
@@ -246,7 +248,7 @@ class NachweisListener
 	public function statusPruefen(mixed $wert, DataContainer $dc): mixed
 	{
 		$endung = substr((string) $dc->inputName, \strlen((string) $dc->field));
-		$act = Verschiebesperre::aktion($this->requestStack->getCurrentRequest());
+		$act = Aktion::act($this->requestStack->getCurrentRequest());
 		$artAusFormular = \in_array($act, array('editall', 'overrideall'), true) ? null : Input::post('dokumentart'.$endung);
 		$artId = (int) ($artAusFormular ?: ($this->nachweise->zeile((int) $dc->id)['dokumentart'] ?? 0));
 		$art = $this->arten->eine($artId);

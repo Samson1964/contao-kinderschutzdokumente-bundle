@@ -38,44 +38,24 @@ final class Verschiebesperre
 	 * ausdrücklich). „paste“ mit „mode=copy“ oder ohne Modus bleibt unberührt;
 	 * Kopieren regelt „notCopyable“ der jeweiligen DCA.
 	 *
-	 * „act“ und „mode“ werden vor dem Vergleich kleingeschrieben: Contao ruft
-	 * für jede Aktion, die es nicht selbst abfängt, $dc->$act() auf, und
-	 * PHP-Methodennamen sind von der Schreibweise unabhängig. „act=Cut“ oder
-	 * „act=cutall“ landeten sonst in DC_Table::cut()/cutAll(), ohne dass ein
-	 * Vergleich mit „cut“/„cutAll“ greift (in 4.13 und 5.7 gleich).
+	 * „act“ und „mode“ kommen über Aktion: kleingeschrieben, und ein Wert aus
+	 * anderen Zeichen („cu&#116;“, „cu%00t“) führt schon dort zu 403. Contao
+	 * ruft $dc->$act() auf, PHP-Methodennamen sind von der Schreibweise
+	 * unabhängig, und 4.13 normalisiert „act“ in Input::get(); ein Vergleich
+	 * mit dem rohen Wert ließe sich sonst umgehen.
 	 *
 	 * @param Request|null $anfrage Die laufende Anfrage; null (etwa auf der
 	 *                              Kommandozeile) sperrt nichts
 	 *
-	 * @throws AccessDeniedException Bei einer Verschiebeaktion
+	 * @throws AccessDeniedException Bei einer Verschiebeaktion oder einem ungültigen „act“/„mode“
 	 */
 	public static function pruefe(?Request $anfrage): void
 	{
-		$act = self::aktion($anfrage);
-		$modus = strtolower((string) $anfrage?->query->get('mode'));
+		$act = Aktion::act($anfrage);
+		$modus = Aktion::modus($anfrage);
 
 		if (\in_array($act, array('cut', 'cutall'), true) || ('paste' === $act && 'cut' === $modus)) {
 			throw new AccessDeniedException('Kinderschutz-Datensätze lassen sich nicht verschieben.');
 		}
-	}
-
-	/**
-	 * Liefert die Aktion der Anfrage („act“) in Kleinbuchstaben.
-	 *
-	 * Contao vergleicht „act“ an einigen Stellen wörtlich, ruft aber am Ende
-	 * $dc->$act() auf; PHP-Methodennamen sind von der Schreibweise
-	 * unabhängig. „act=editall“ führt also DC_Table::editAll() aus, obwohl
-	 * ein Vergleich mit „editAll“ nicht greift. Wer eine Aktion sperren oder
-	 * an ihr etwas einrichten will, vergleicht deshalb diesen Wert mit
-	 * kleingeschriebenen Soll-Werten.
-	 *
-	 * @param Request|null $anfrage Die laufende Anfrage; null (etwa auf der
-	 *                              Kommandozeile) ergibt eine leere Zeichenkette
-	 *
-	 * @return string Die Aktion in Kleinbuchstaben, leer ohne „act“
-	 */
-	public static function aktion(?Request $anfrage): string
-	{
-		return strtolower((string) $anfrage?->query->get('act'));
 	}
 }

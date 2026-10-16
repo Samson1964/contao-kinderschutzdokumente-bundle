@@ -98,18 +98,18 @@ class AntragListenerTest extends TestCase
 	public static function sammelaktionen(): array
 	{
 		return array(
-			'Auswahl'            => array('select'),
-			'Mehrere bearbeiten' => array('editAll'),
-			'Überschreiben'      => array('overrideAll'),
-			'Mehrere löschen'    => array('deleteAll'),
-			'Mehrere kopieren'   => array('copyAll'),
+			'Auswahl'                  => array('select'),
+			'Mehrere bearbeiten'       => array('editAll'),
+			'Überschreiben'            => array('overrideAll'),
+			'Mehrere löschen'          => array('deleteAll'),
+			'Mehrere kopieren'         => array('copyAll'),
 			// Contao ruft $dc->$act() auf; PHP-Methodennamen sind von der
 			// Schreibweise unabhängig, die Sperre muss es auch sein.
-			'Auswahl groß'                => array('Select'),
-			'Mehrere bearbeiten klein'    => array('editall'),
-			'Überschreiben groß'          => array('OVERRIDEALL'),
-			'Mehrere löschen gemischt'    => array('DeleteAll'),
-			'Mehrere kopieren klein'      => array('copyall'),
+			'Auswahl groß'             => array('Select'),
+			'Mehrere bearbeiten klein' => array('editall'),
+			'Überschreiben groß'       => array('OVERRIDEALL'),
+			'Mehrere löschen gemischt' => array('DeleteAll'),
+			'Mehrere kopieren klein'   => array('copyall'),
 		);
 	}
 
@@ -137,12 +137,43 @@ class AntragListenerTest extends TestCase
 	public static function verschiebeaktionen(): array
 	{
 		return array(
-			'Ausschneiden'                 => array('cut', null),
-			'Mehrere ausschneiden'         => array('cutAll', null),
+			'Ausschneiden'               => array('cut', null),
+			'Mehrere ausschneiden'       => array('cutAll', null),
 			'Einfügen nach Ausschneiden' => array('paste', 'cut'),
-			'Ausschneiden groß'            => array('Cut', null),
-			'Mehrere ausschneiden klein'   => array('cutall', null),
-			'Einfügen gemischt'            => array('Paste', 'CUT'),
+			'Ausschneiden groß'          => array('Cut', null),
+			'Mehrere ausschneiden klein' => array('cutall', null),
+			'Einfügen gemischt'          => array('Paste', 'CUT'),
+		);
+	}
+
+	/**
+	 * Werte, die erst Contao 4.13 zu einer Aktion normalisiert (Input::get()
+	 * dekodiert Entitäten und entfernt Steuerzeichen), ergeben 403.
+	 *
+	 * @dataProvider umgehungen
+	 *
+	 * @param string $act Roher Wert von „act“
+	 */
+	public function testUmgehungenVerweigert(string $act): void
+	{
+		$this->expectException(AccessDeniedException::class);
+		$this->listener(array('act' => $act))->beimLaden($this->dc(3));
+	}
+
+	/**
+	 * Umgehungsversuche über die Normalisierung von Contao 4.13.
+	 *
+	 * @return array<string, array{0: string}>
+	 */
+	public static function umgehungen(): array
+	{
+		return array(
+			'Nullbyte'        => array("cu\0t"),
+			'Wagenrücklauf'   => array("cu\rt"),
+			'Entität cut'     => array('cu&#116;'),
+			'Entität editAll' => array('ed&#105;tAll'),
+			'Entität copy'    => array('co&#112;y'),
+			'Entität edit'    => array('ed&#105;t'),
 		);
 	}
 
@@ -170,8 +201,8 @@ class AntragListenerTest extends TestCase
 	public static function kopieraktionen(): array
 	{
 		return array(
-			'Kopieren'       => array('copy'),
-			'Kopieren groß'  => array('Copy'),
+			'Kopieren'      => array('copy'),
+			'Kopieren groß' => array('Copy'),
 		);
 	}
 

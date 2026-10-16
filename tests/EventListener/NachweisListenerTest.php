@@ -116,13 +116,13 @@ class NachweisListenerTest extends TestCase
 	public static function verschiebeaktionen(): array
 	{
 		return array(
-			'Ausschneiden'                 => array('kinderschutz_nachweise', array('act' => 'cut')),
-			'Mehrere ausschneiden'         => array('kinderschutz_nachweise', array('act' => 'cutAll')),
+			'Ausschneiden'               => array('kinderschutz_nachweise', array('act' => 'cut')),
+			'Mehrere ausschneiden'       => array('kinderschutz_nachweise', array('act' => 'cutAll')),
 			'Einfügen nach Ausschneiden' => array('kinderschutz_nachweise', array('act' => 'paste', 'mode' => 'cut')),
-			'Papierkorb'                   => array('kinderschutz_papierkorb', array('act' => 'cut')),
-			'Ausschneiden groß'            => array('kinderschutz_nachweise', array('act' => 'Cut')),
-			'Mehrere ausschneiden klein'   => array('kinderschutz_nachweise', array('act' => 'cutall')),
-			'Einfügen gemischt'            => array('kinderschutz_nachweise', array('act' => 'PASTE', 'mode' => 'Cut')),
+			'Papierkorb'                 => array('kinderschutz_papierkorb', array('act' => 'cut')),
+			'Ausschneiden groß'          => array('kinderschutz_nachweise', array('act' => 'Cut')),
+			'Mehrere ausschneiden klein' => array('kinderschutz_nachweise', array('act' => 'cutall')),
+			'Einfügen gemischt'          => array('kinderschutz_nachweise', array('act' => 'PASTE', 'mode' => 'Cut')),
 		);
 	}
 
@@ -151,11 +151,42 @@ class NachweisListenerTest extends TestCase
 	public static function kopieraktionen(): array
 	{
 		return array(
-			'Kopieren'                => array('kinderschutz_nachweise', 'copy'),
-			'Mehrere kopieren'        => array('kinderschutz_nachweise', 'copyAll'),
-			'Papierkorb'              => array('kinderschutz_papierkorb', 'copy'),
-			'Kopieren groß'           => array('kinderschutz_nachweise', 'COPY'),
-			'Mehrere kopieren klein'  => array('kinderschutz_nachweise', 'copyall'),
+			'Kopieren'               => array('kinderschutz_nachweise', 'copy'),
+			'Mehrere kopieren'       => array('kinderschutz_nachweise', 'copyAll'),
+			'Papierkorb'             => array('kinderschutz_papierkorb', 'copy'),
+			'Kopieren groß'          => array('kinderschutz_nachweise', 'COPY'),
+			'Mehrere kopieren klein' => array('kinderschutz_nachweise', 'copyall'),
+		);
+	}
+
+	/**
+	 * Werte, die erst Contao 4.13 zu einer Aktion normalisiert (Input::get()
+	 * dekodiert Entitäten und entfernt Steuerzeichen), ergeben 403.
+	 *
+	 * @dataProvider umgehungen
+	 *
+	 * @param string $act Roher Wert von „act“
+	 */
+	public function testUmgehungenVerweigert(string $act): void
+	{
+		$this->expectException(AccessDeniedException::class);
+		$this->listener('kinderschutz_nachweise', false, array('act' => $act, 'id' => '4'))->beimLaden();
+	}
+
+	/**
+	 * Umgehungsversuche über die Normalisierung von Contao 4.13.
+	 *
+	 * @return array<string, array{0: string}>
+	 */
+	public static function umgehungen(): array
+	{
+		return array(
+			'Nullbyte'        => array("cu\0t"),
+			'Wagenrücklauf'   => array("cu\rt"),
+			'Entität cut'     => array('cu&#116;'),
+			'Entität editAll' => array('ed&#105;tAll'),
+			'Entität copy'    => array('co&#112;y'),
+			'Entität edit'    => array('ed&#105;t'),
 		);
 	}
 
@@ -250,8 +281,8 @@ class NachweisListenerTest extends TestCase
 	public static function sammelaktionenMitEndung(): array
 	{
 		return array(
-			'Mehrere bearbeiten' => array('editAll', '_4'),
-			'Überschreiben'      => array('overrideAll', ''),
+			'Mehrere bearbeiten'       => array('editAll', '_4'),
+			'Überschreiben'            => array('overrideAll', ''),
 			'Mehrere bearbeiten klein' => array('editall', '_4'),
 		);
 	}
@@ -307,8 +338,8 @@ class NachweisListenerTest extends TestCase
 	public static function sammelaktionen(): array
 	{
 		return array(
-			'Mehrere bearbeiten' => array('editAll'),
-			'Überschreiben'      => array('overrideAll'),
+			'Mehrere bearbeiten'       => array('editAll'),
+			'Überschreiben'            => array('overrideAll'),
 			// $dc->$act() ist von der Schreibweise unabhängig
 			'Mehrere bearbeiten klein' => array('editall'),
 			'Überschreiben gemischt'   => array('OverrideAll'),

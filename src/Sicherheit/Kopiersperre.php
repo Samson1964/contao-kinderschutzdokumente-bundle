@@ -31,7 +31,7 @@ final class Kopiersperre
 	 * Bricht mit „Zugriff verweigert“ ab, wenn die Anfrage kopieren will.
 	 *
 	 * Gesperrt sind „act=copy“ und „act=copyAll“ in jeder Schreibweise
-	 * (Contao ruft $dc->$act() auf, siehe Verschiebesperre::aktion()).
+	 * (Contao ruft $dc->$act() auf, siehe Aktion::act()).
 	 * „act=paste&mode=copy“ bleibt erlaubt: Es zeigt nur die Liste mit der
 	 * Zwischenablage; der eigentliche Kopiervorgang läuft danach über
 	 * „act=copy“ und wird dort gesperrt.
@@ -43,7 +43,7 @@ final class Kopiersperre
 	 */
 	public static function pruefe(?Request $anfrage): void
 	{
-		if (\in_array(Verschiebesperre::aktion($anfrage), array('copy', 'copyall'), true)) {
+		if (\in_array(Aktion::act($anfrage), array('copy', 'copyall'), true)) {
 			throw new AccessDeniedException('Kinderschutz-Datensätze lassen sich nicht kopieren.');
 		}
 	}

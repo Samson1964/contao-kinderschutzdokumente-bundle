@@ -23,6 +23,7 @@ use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Einstellungen;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Freischaltung;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Zugang;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\EventListener\MeldungListener;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\Sicherheit\Aktion;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Sicherheit\Kopiersperre;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Sicherheit\Verschiebesperre;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -37,7 +38,7 @@ class AntragListener
 	 * Die Aktionen, die mehrere Datensätze auf einmal bearbeiten.
 	 *
 	 * Kleingeschrieben, weil „act“ vor dem Vergleich kleingeschrieben wird
-	 * (siehe Verschiebesperre::aktion()).
+	 * (siehe Aktion::act()).
 	 */
 	private const SAMMELAKTIONEN = array('select', 'editall', 'overrideall', 'deleteall', 'copyall');
 
@@ -97,9 +98,10 @@ class AntragListener
 		$this->zugang->verlange();
 		Verschiebesperre::pruefe($this->requestStack->getCurrentRequest());
 		Kopiersperre::pruefe($this->requestStack->getCurrentRequest());
-		// Kleingeschrieben: „act=editall“ oder „act=Edit“ führen über
-		// $dc->$act() dieselbe Methode aus wie die übliche Schreibweise.
-		$act = Verschiebesperre::aktion($this->requestStack->getCurrentRequest());
+		// Über Aktion: kleingeschrieben, weil „act=editall“ oder „act=Edit“
+		// über $dc->$act() dieselbe Methode ausführen; ein Wert aus anderen
+		// Zeichen (4.13 normalisiert „ed&#105;tAll“ zu „editAll“) ergibt 403.
+		$act = Aktion::act($this->requestStack->getCurrentRequest());
 
 		if (\in_array($act, self::SAMMELAKTIONEN, true)) {
 			throw new AccessDeniedException('Anträge lassen sich nur einzeln bearbeiten.');
