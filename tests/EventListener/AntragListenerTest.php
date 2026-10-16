@@ -312,6 +312,51 @@ class AntragListenerTest extends TestCase
 	}
 
 	/**
+	 * Eine Begründung erscheint nur bei einer Ablehnung.
+	 *
+	 * Contao 4.13 speichert die Felder einzeln: Scheitert die Prüfung des
+	 * Stands („abgelehnt“ ohne echte Begründung), wird „grund“ trotzdem
+	 * geschrieben. Im Prüfstand stand danach bei einem freigeschalteten
+	 * Antrag „Begründung <b></b>“ im Kasten.
+	 *
+	 * @dataProvider staendeMitBegruendung
+	 *
+	 * @param string $stand    Gespeicherter Stand
+	 * @param bool   $erwartet Ob die Begründung erscheinen soll
+	 */
+	public function testInfokastenZeigtBegruendungNurBeiAblehnung(string $stand, bool $erwartet): void
+	{
+		$personen = $this->createMock(PersonenRepository::class);
+		$personen->method('benutzerName')->willReturn('Astrid');
+
+		$html = $this->listener(array('personen' => $personen, 'zeile' => array(
+			'status'          => $stand,
+			'entschiedenAm'   => strtotime('2026-10-16 11:30'),
+			'entschiedenVon'  => 2,
+			'beantragtAm'     => strtotime('2026-10-15 09:00'),
+			'wofuer'          => 'Training',
+			'veranstaltungen' => null,
+			'direkt'          => '',
+			'grund'           => '&lt;b>Rest&lt;/b>',
+		)))->info($this->dc(3));
+
+		$this->assertSame($erwartet, str_contains($html, 'Begründung'));
+	}
+
+	/**
+	 * Entschiedene Stände und ob die Begründung dazu erscheint.
+	 *
+	 * @return array<string, array{0: string, 1: bool}>
+	 */
+	public static function staendeMitBegruendung(): array
+	{
+		return array(
+			'abgelehnt'      => array('abgelehnt', true),
+			'freigeschaltet' => array('freigeschaltet', false),
+		);
+	}
+
+	/**
 	 * Scheitert die Mail, wird der Hinweis für die Folgeseite vorgemerkt.
 	 */
 	public function testNachSpeichernMerktHinweisBeiGescheiterterMail(): void

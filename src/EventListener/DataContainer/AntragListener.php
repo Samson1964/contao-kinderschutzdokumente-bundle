@@ -208,7 +208,7 @@ class AntragListener
 	 * Alle Benutzereingaben werden maskiert (ohne doppelte Kodierung, kodiert
 	 * gespeicherte Zeichen erscheinen also richtig); die Begründungen
 	 * behalten ihre Zeilenumbrüche. Eine gelöschte Veranstaltung erscheint
-	 * mit ihrer ID.
+	 * mit ihrer ID. Die Begründung erscheint nur bei einer Ablehnung.
 	 *
 	 * @param DataContainer $dc Der Data Container
 	 *
@@ -242,7 +242,11 @@ class AntragListener
 			$stand = ($t['stati'][(string) $zeile['status']] ?? (string) $zeile['status']).' '.sprintf($t['entschieden'], Date::parse('d.m.Y H:i', (int) $zeile['entschiedenAm']), $this->personen->benutzerName((int) $zeile['entschiedenVon']));
 			$zeilen[$t['status'][0]] = StringUtil::specialchars($stand).('1' === (string) $zeile['direkt'] ? '<br>'.$t['direktVermerk'] : '');
 
-			if ('' !== trim((string) $zeile['grund'])) {
+			// Nur bei einer Ablehnung: Contao 4.13 speichert die Felder einzeln
+			// und schreibt „grund“ auch dann, wenn die Prüfung des Stands
+			// scheitert. Ein Rest aus einem gescheiterten Ablehnversuch stünde
+			// sonst bei einem später freigeschalteten Antrag.
+			if (AntragRepository::ABGELEHNT === (string) $zeile['status'] && '' !== trim((string) $zeile['grund'])) {
 				$zeilen[$t['grund'][0]] = nl2br(StringUtil::specialchars((string) $zeile['grund']));
 			}
 		}
