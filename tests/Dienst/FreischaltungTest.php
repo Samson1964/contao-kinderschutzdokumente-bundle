@@ -106,6 +106,42 @@ class FreischaltungTest extends Testhilfen
 	}
 
 	/**
+	 * Nur echte Tags verschwinden; ein „<“ im Text und die Zeilenenden bleiben brauchbar.
+	 *
+	 * @dataProvider begruendungenImSpeicher
+	 *
+	 * @param string $eingabe     Text aus dem Formular
+	 * @param string $gespeichert Was im Antrag landen muss
+	 */
+	public function testBeantragenBereinigtDieBegruendung(string $eingabe, string $gespeichert): void
+	{
+		$this->assertNull($this->dienst()->beantragen($this->carla, $eingabe, array(), $this->jetzt));
+		$this->assertSame($gespeichert, (new AntragRepository($this->db))->offenerFuer($this->carla)['wofuer']);
+	}
+
+	/**
+	 * Eingabe und erwarteter Eintrag.
+	 *
+	 * @return array<string, array{0: string, 1: string}>
+	 */
+	public static function begruendungenImSpeicher(): array
+	{
+		$genau500 = str_repeat('ä', 500);
+
+		return array(
+			'kleiner-als vor Zahl'      => array('Betreuung bei <18-Jährigen', 'Betreuung bei <18-Jährigen'),
+			'kleiner-als am Anfang'     => array('<12-Training JWM', '<12-Training JWM'),
+			'Vergleich mit Leerzeichen' => array('U10 < U12', 'U10 < U12'),
+			'Tag um ein Wort'           => array('<b>Training</b>', 'Training'),
+			'Tag mit Attribut'          => array('Training <a href="x" onclick="y">U12</a>', 'Training U12'),
+			'verschachtelter Tag'       => array('<<b>i>Text', 'Text'),
+			'Rand wird getrimmt'        => array("  \t Training \n ", 'Training'),
+			'Windows-Zeilenenden'       => array("Zeile 1\r\nZeile 2\rZeile 3", "Zeile 1\nZeile 2\nZeile 3"),
+			'genau 500 Zeichen'         => array($genau500, $genau500),
+		);
+	}
+
+	/**
 	 * Solange ein Antrag offen ist, gibt es keinen zweiten.
 	 */
 	public function testZweiterOffenerAntragWirdAbgewiesen(): void

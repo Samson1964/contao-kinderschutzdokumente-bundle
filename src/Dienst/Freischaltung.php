@@ -59,8 +59,10 @@ class Freischaltung
 	/**
 	 * Nimmt einen Antrag aus dem Frontend an.
 	 *
-	 * Die Begründung wird von HTML befreit, an den Rändern getrimmt und auf
-	 * die Höchstlänge WOFUER_MAX geprüft; von den angekreuzten
+	 * Die Begründung wird mit bereinigeBegruendung() von echten HTML-Tags
+	 * befreit (ein einzelnes „<“ im Text bleibt stehen), bekommt einheitliche
+	 * Zeilenenden, wird an den Rändern getrimmt und auf die Höchstlänge
+	 * WOFUER_MAX in Zeichen geprüft; von den angekreuzten
 	 * Veranstaltungen bleiben nur die, die gerade wählbar sind – eine
 	 * nachgebaute Anfrage kann also keine interne Veranstaltung
 	 * unterschieben. Die Mail an die Prüfer darf scheitern; der Antrag gilt
@@ -92,7 +94,7 @@ class Freischaltung
 			return 'gruppe';
 		}
 
-		$wofuer = trim(strip_tags($wofuer));
+		$wofuer = $this->bereinigeBegruendung($wofuer);
 
 		if ('' === $wofuer || mb_strlen($wofuer) > self::WOFUER_MAX) {
 			return 'wofuer';
@@ -279,6 +281,41 @@ class Freischaltung
 		$person = $this->personen->mitglied((int) $zeile['member']);
 
 		return null === $person ? true : $this->benachrichtigung->antragAbgelehnt($person, (string) $zeile['grund']);
+	}
+
+	/**
+	 * Bereinigt die Begründung aus dem Formular.
+	 *
+	 * Entfernt werden nur echte Tags („<b>“, „</a>“, „<a href=…>“): ein „<“,
+	 * dem ein Buchstabe oder „/“ und ein Buchstabe folgen, bis zum nächsten
+	 * „>“. strip_tags() ist dafür zu grob; es hielte „<18-Jährigen“ für den
+	 * Anfang eines Tags und schnitte den Rest der Eingabe ab. Ein einzelnes
+	 * „<“ bleibt deshalb Text. Das ist unbedenklich, weil jede Ausgabe
+	 * maskiert wird und die Mails reiner Text sind; das Entfernen der Tags
+	 * ist nur eine zusätzliche Vorsicht. Es läuft mehrfach, bis nichts mehr
+	 * wegfällt, damit aus „<<b>i>“ nicht durch das Entfernen von „<b>“ ein
+	 * neues „<i>“ entsteht.
+	 *
+	 * Die Zeilenenden werden vorher auf „\n“ vereinheitlicht. Ein Browser
+	 * sendet Zeilenumbrüche im Textfeld als „\r\n“, zählt sie fürs
+	 * Attribut „maxlength“ aber als ein Zeichen; ohne die Vereinheitlichung
+	 * zählten Formular und Serverprüfung verschieden.
+	 *
+	 * @param string $wofuer Eingabe aus dem Formular
+	 *
+	 * @return string Der bereinigte Text, an den Rändern ohne Leerraum;
+	 *                leer, wenn nichts übrig bleibt
+	 */
+	private function bereinigeBegruendung(string $wofuer): string
+	{
+		$wofuer = str_replace(array("\r\n", "\r"), "\n", $wofuer);
+
+		do {
+			$vorher = $wofuer;
+			$wofuer = (string) preg_replace('~</?[a-zA-Z][^<>]*>~', '', $wofuer);
+		} while ($wofuer !== $vorher);
+
+		return trim($wofuer);
 	}
 
 	/**
