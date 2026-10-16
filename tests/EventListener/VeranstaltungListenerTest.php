@@ -51,15 +51,48 @@ class VeranstaltungListenerTest extends TestCase
 	}
 
 	/**
+	 * Der save_callback schreibt die Auswahl zur Veranstaltung.
+	 */
+	public function testSpeichernSchreibtTeilnehmer(): void
+	{
+		$veranstaltungen = $this->createMock(VeranstaltungRepository::class);
+		$veranstaltungen->expects($this->once())->method('setzeTeilnehmer')->with(2, array(990097, 990098), $this->isType('int'));
+
+		$this->assertNull($this->listener(array(), $veranstaltungen)->speichern(serialize(array('990097', '990098')), $this->dc(2)));
+	}
+
+	/**
+	 * Ohne Datensatz schreibt der save_callback nichts.
+	 *
+	 * Contao 4.13 baut in „Mehrere bearbeiten → Überschreiben“ nach dem
+	 * Speichern aller Datensätze noch in derselben Anfrage das Formular neu
+	 * auf, mit ID 0, und row() speichert dabei jedes Feld ein weiteres Mal
+	 * (DC_Table::overrideAll(), erst danach folgt die Weiterleitung; 5.7
+	 * leitet vorher weiter). Im Prüfstand 4.13 entstand so eine Teilnahme mit
+	 * Veranstaltung 0.
+	 */
+	public function testSpeichernOhneDatensatzSchreibtNichts(): void
+	{
+		$veranstaltungen = $this->createMock(VeranstaltungRepository::class);
+		$veranstaltungen->expects($this->never())->method('setzeTeilnehmer');
+
+		$this->assertNull($this->listener(array(), $veranstaltungen)->speichern(serialize(array('990097')), $this->dc(0)));
+	}
+
+	/**
 	 * Baut den Listener mit festen Teilnehmern.
 	 *
-	 * @param list<int> $teilnehmer Mitglieds-IDs, die das Repository liefert
+	 * @param list<int>                    $teilnehmer      Mitglieds-IDs, die das Repository liefert
+	 * @param VeranstaltungRepository|null $veranstaltungen Eigene Attrappe des
+	 *                                                      Repositorys, etwa mit
+	 *                                                      Erwartungen; sonst
+	 *                                                      eine neue
 	 *
 	 * @return VeranstaltungListener Der Listener
 	 */
-	private function listener(array $teilnehmer): VeranstaltungListener
+	private function listener(array $teilnehmer, ?VeranstaltungRepository $veranstaltungen = null): VeranstaltungListener
 	{
-		$veranstaltungen = $this->createMock(VeranstaltungRepository::class);
+		$veranstaltungen ??= $this->createMock(VeranstaltungRepository::class);
 		$veranstaltungen->method('teilnehmer')->willReturn($teilnehmer);
 
 		return new VeranstaltungListener($veranstaltungen, $this->createMock(PersonenRepository::class), $this->createMock(Einstellungen::class));

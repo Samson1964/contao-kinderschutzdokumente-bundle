@@ -97,14 +97,28 @@ class VeranstaltungListener
 	 * Gibt null zurück; zusammen mit „doNotSaveEmpty“ versucht Contao dann
 	 * nicht, in eine Spalte „teilnehmer“ zu schreiben, die es nicht gibt.
 	 *
+	 * Ohne Datensatz-ID wird nichts geschrieben. Contao 4.13 baut in „Mehrere
+	 * bearbeiten → Überschreiben“ nach dem Speichern aller Datensätze das
+	 * Formular in derselben Anfrage noch einmal mit ID 0 auf, und row()
+	 * speichert dabei jedes Feld erneut (DC_Table::overrideAll(), die
+	 * Weiterleitung folgt erst danach; 5.7 leitet vorher weiter). Ohne diese
+	 * Sperre entstanden Teilnahmen mit Veranstaltung 0.
+	 *
+	 * Seiteneffekt: schreibt und löscht Zeilen in tl_kinderschutz_teilnahme.
+	 *
 	 * @param mixed         $wert Serialisierte Auswahl
-	 * @param DataContainer $dc   Der Data Container
+	 * @param DataContainer $dc   Der Data Container; ID 0 beim Formularaufbau
+	 *                            von „Überschreiben“ in 4.13
 	 *
 	 * @return null Immer
 	 */
 	#[AsCallback(table: 'tl_kinderschutz_veranstaltung', target: 'fields.teilnehmer.save')]
 	public function speichern(mixed $wert, DataContainer $dc): mixed
 	{
+		if ((int) $dc->id <= 0) {
+			return null;
+		}
+
 		$this->veranstaltungen->setzeTeilnehmer((int) $dc->id, array_map('intval', StringUtil::deserialize($wert, true)), time());
 
 		return null;
