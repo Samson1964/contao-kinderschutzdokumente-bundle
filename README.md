@@ -64,7 +64,10 @@ Tabelle `tl_kinderschutz_antrag` dazu).
    bei verlangten Unterlagen außerdem „Pflichtdokument“. Für das EFZ: Gültigkeit 24 Monate,
    „Datei nach der Prüfung in den Papierkorb“ und „Einschlägige Einträge abfragen“.
 3. Eine **Seite** mit dem Anmeldemodul und dem Frontend-Modul „Kinderschutz: Meine Unterlagen“
-   anlegen (am besten geschützt). Das Frontend-Modul gehört als **Inhaltselement „Modul“ in einen
+   anlegen. Wird die Seite geschützt, dann für **alle angemeldeten Mitglieder** (etwa für die
+   Gruppe, in die jede Registrierung fällt), **nicht** nur für die Gruppe aus Schritt 1: Sonst
+   sehen noch nicht freigeschaltete Mitglieder die Zugriffsverweigerung statt des
+   Antragsformulars. Das Frontend-Modul gehört als **Inhaltselement „Modul“ in einen
    Artikel** der Seite: Nur so findet die Einstellungsmaske die Seite. Über das Seitenlayout oder
    in einem verschachtelten Element eingebundene Module erkennt sie nicht. Am Startpunkt muss die
    Domain eingetragen sein, sonst stimmen die Links in den Mails nicht: Der Cronjob läuft ohne
@@ -109,6 +112,10 @@ Tabelle `tl_kinderschutz_antrag` dazu).
 4. Die Seite mit „Meine Unterlagen“ prüfen: Eine bisher gewählte Seite, auf der das Modul nicht
    als Inhaltselement gefunden wird (etwa weil es über das Seitenlayout eingebunden ist), bleibt
    gewählt und erscheint mit dem Zusatz „ohne Frontend-Modul“.
+5. **Seitenschutz der Unterlagenseite prüfen**: Ist die Seite nur für die Gruppe der
+   freigeschalteten Mitglieder freigegeben, sehen alle anderen angemeldeten Mitglieder die
+   Zugriffsverweigerung statt des neuen Antragsformulars. Die Seite für alle angemeldeten
+   Mitglieder freigeben (etwa für die Gruppe, in die jede Registrierung fällt).
 
 ## Konfiguration
 

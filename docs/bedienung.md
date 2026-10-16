@@ -271,7 +271,10 @@ Unter **Einstellungen** stehen in den Abschnitten „Allgemein“ und „Fristen
   „Titel (Alias, ID)“; auch unveröffentlichte Seiten stehen zur Wahl. Über das Seitenlayout
   oder in einem verschachtelten Element eingebundene Module werden nicht erkannt. Eine schon
   gespeicherte Seite, auf der das Modul nicht gefunden wird, bleibt mit dem Zusatz „ohne
-  Frontend-Modul“ gewählt. Die Mails an Mitglieder verlinken diese Seite; die Domain muss am
+  Frontend-Modul“ gewählt. Ist die Seite geschützt, muss sie für alle angemeldeten Mitglieder
+  freigegeben sein, nicht nur für die Gruppe der freigeschalteten Mitglieder – sonst sehen
+  noch nicht freigeschaltete Mitglieder die Zugriffsverweigerung statt des Antragsformulars.
+  Die Mails an Mitglieder verlinken diese Seite; die Domain muss am
   Startpunkt eingetragen sein.
 * **Absenderadresse** (leer: die Adresse des Systemadministrators), **Papierkorbfrist in Tagen**
   (leer: 30), **Erinnerung vor Ablauf in Wochen** (leer: 8) und **Erinnerung vor
