@@ -15,14 +15,15 @@ use Contao\CoreBundle\Exception\AccessDeniedException;
 use PHPUnit\Framework\TestCase;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Zugang;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\EventListener\DataContainer\ZugangListener;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\RequestStack;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\Tests\EingabeAttrappe;
 
 /**
  * Prüft die Sperren für Dokumentarten, Veranstaltungen und Teilnahmen.
  */
 class ZugangListenerTest extends TestCase
 {
+	use EingabeAttrappe;
+
 	/**
 	 * Ohne Freigabe bricht schon das Laden ab.
 	 */
@@ -102,7 +103,7 @@ class ZugangListenerTest extends TestCase
 	 */
 	public function testOhneAnfrageKeineSperre(): void
 	{
-		(new ZugangListener($this->createMock(Zugang::class), new RequestStack()))();
+		(new ZugangListener($this->createMock(Zugang::class), $this->eingabe(array())))();
 
 		$this->addToAssertionCount(1);
 	}
@@ -117,9 +118,6 @@ class ZugangListenerTest extends TestCase
 	 */
 	private function listener(array $abfrage, ?Zugang $zugang = null): ZugangListener
 	{
-		$stapel = new RequestStack();
-		$stapel->push(new Request(array('do' => 'kinderschutz_veranstaltungen') + $abfrage));
-
-		return new ZugangListener($zugang ?? $this->createMock(Zugang::class), $stapel);
+		return new ZugangListener($zugang ?? $this->createMock(Zugang::class), $this->eingabe(array('do' => 'kinderschutz_veranstaltungen') + $abfrage));
 	}
 }

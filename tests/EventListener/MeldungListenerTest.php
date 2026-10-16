@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 namespace Schachbulle\ContaoKinderschutzdokumenteBundle\Tests\EventListener;
 
+use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\DataContainer;
 use Contao\Message;
 use Contao\System;
@@ -291,8 +292,8 @@ class MeldungListenerTest extends TestCase
 			$this->createMock(Papierkorb::class),
 			$this->createMock(Einstellungen::class),
 			$this->createMock(UrlGeneratorInterface::class),
-			new RequestStack(),
 			$meldungen,
+			$this->createMock(ContaoFramework::class),
 		);
 	}
 }

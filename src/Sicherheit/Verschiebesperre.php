@@ -12,7 +12,7 @@ declare(strict_types=1);
 namespace Schachbulle\ContaoKinderschutzdokumenteBundle\Sicherheit;
 
 use Contao\CoreBundle\Exception\AccessDeniedException;
-use Symfony\Component\HttpFoundation\Request;
+use Contao\CoreBundle\Framework\ContaoFramework;
 
 /**
  * Sperrt das Verschieben von Datensätzen in den Kinderschutz-Tabellen.
@@ -38,21 +38,20 @@ final class Verschiebesperre
 	 * ausdrücklich). „paste“ mit „mode=copy“ oder ohne Modus bleibt unberührt;
 	 * Kopieren regelt „notCopyable“ der jeweiligen DCA.
 	 *
-	 * „act“ und „mode“ kommen über Aktion: kleingeschrieben, und ein Wert aus
-	 * anderen Zeichen („cu&#116;“, „cu%00t“) führt schon dort zu 403. Contao
-	 * ruft $dc->$act() auf, PHP-Methodennamen sind von der Schreibweise
-	 * unabhängig, und 4.13 normalisiert „act“ in Input::get(); ein Vergleich
-	 * mit dem rohen Wert ließe sich sonst umgehen.
+	 * „act“ und „mode“ kommen über Aktion, also so, wie Contao sie für
+	 * $dc->$act() liest (4.13 normalisiert Werte und Schlüssel), und
+	 * kleingeschrieben. Ein Vergleich mit dem rohen Symfony-Wert ließe sich
+	 * mit „cu&#116;“ oder „ac%0Dt=cut“ umgehen.
 	 *
-	 * @param Request|null $anfrage Die laufende Anfrage; null (etwa auf der
-	 *                              Kommandozeile) sperrt nichts
+	 * @param ContaoFramework $framework Das Framework, dessen Input-Adapter
+	 *                                   Aktion liest; ohne Anfrage keine Sperre
 	 *
 	 * @throws AccessDeniedException Bei einer Verschiebeaktion oder einem ungültigen „act“/„mode“
 	 */
-	public static function pruefe(?Request $anfrage): void
+	public static function pruefe(ContaoFramework $framework): void
 	{
-		$act = Aktion::act($anfrage);
-		$modus = Aktion::modus($anfrage);
+		$act = Aktion::act($framework);
+		$modus = Aktion::modus($framework);
 
 		if (\in_array($act, array('cut', 'cutall'), true) || ('paste' === $act && 'cut' === $modus)) {
 			throw new AccessDeniedException('Kinderschutz-Datensätze lassen sich nicht verschieben.');

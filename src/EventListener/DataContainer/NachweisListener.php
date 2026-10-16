@@ -13,6 +13,7 @@ namespace Schachbulle\ContaoKinderschutzdokumenteBundle\EventListener\DataContai
 
 use Contao\CoreBundle\DependencyInjection\Attribute\AsCallback;
 use Contao\CoreBundle\Exception\RedirectResponseException;
+use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\DataContainer;
 use Contao\Date;
 use Contao\Input;
@@ -30,7 +31,6 @@ use Schachbulle\ContaoKinderschutzdokumenteBundle\Regeln\Nachweis;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Sicherheit\Aktion;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Sicherheit\Kopiersperre;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Sicherheit\Verschiebesperre;
-use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
@@ -49,9 +49,10 @@ class NachweisListener
 	 * @param Papierkorb            $papierkorb    Löschtermin im Papierkorb
 	 * @param Einstellungen         $einstellungen Kinderschutzpflichtige Gruppen
 	 * @param UrlGeneratorInterface $router        Datei-Route und Rücksprung
-	 * @param RequestStack          $requestStack  Liefert do, act und id
 	 * @param MeldungListener       $meldungen     Bringt Fehlerhinweise des Speicherns
 	 *                                             auf die Folgeseite
+	 * @param ContaoFramework       $framework     Input-Adapter: do, act, mode, id, member
+	 *                                             und dokumentart, wie Contao sie liest
 	 */
 	public function __construct(
 		private readonly Zugang $zugang,
@@ -62,8 +63,8 @@ class NachweisListener
 		private readonly Papierkorb $papierkorb,
 		private readonly Einstellungen $einstellungen,
 		private readonly UrlGeneratorInterface $router,
-		private readonly RequestStack $requestStack,
 		private readonly MeldungListener $meldungen,
+		private readonly ContaoFramework $framework,
 	) {
 	}
 
@@ -109,14 +110,17 @@ class NachweisListener
 	{
 		$this->zugang->verlange();
 
-		$anfrage = $this->requestStack->getCurrentRequest();
-		Verschiebesperre::pruefe($anfrage);
-		Kopiersperre::pruefe($anfrage);
-		$do = (string) $anfrage?->query->get('do');
+		// Alle Adressparameter so, wie Contao sie liest: 4.13 normalisiert
+		// Werte und Schlüssel (siehe Sicherheit\Aktion); ein abweichend
+		// gelesenes „do“ oder „id“ wählte sonst die falsche Ansicht.
+		$eingabe = $this->framework->getAdapter(Input::class);
+		Verschiebesperre::pruefe($this->framework);
+		Kopiersperre::pruefe($this->framework);
+		$do = (string) $eingabe->get('do');
 		// Über Aktion: „act=editall“ führt über $dc->$act() ebenfalls
 		// DC_Table::editAll() aus und darf Person und Art nicht freigeben;
 		// Werte aus anderen Zeichen (4.13 normalisiert sie) ergeben 403.
-		$act = Aktion::act($anfrage);
+		$act = Aktion::act($this->framework);
 		$dca = &$GLOBALS['TL_DCA']['tl_kinderschutz'];
 
 		if ('kinderschutz_papierkorb' === $do) {
@@ -125,7 +129,7 @@ class NachweisListener
 			return;
 		}
 
-		$mitglied = (int) $anfrage?->query->get('member');
+		$mitglied = (int) $eingabe->get('member');
 
 		if ('' === $act && $mitglied > 0) {
 			$dca['list']['sorting']['filter'][] = array('member=?', $mitglied);
@@ -133,11 +137,11 @@ class NachweisListener
 
 		if ('create' === $act) {
 			$dca['fields']['member']['default'] = $mitglied;
-			$dca['fields']['dokumentart']['default'] = (int) $anfrage?->query->get('dokumentart');
+			$dca['fields']['dokumentart']['default'] = (int) $eingabe->get('dokumentart');
 		}
 
 		if ('edit' === $act) {
-			$zeile = $this->nachweise->zeile((int) $anfrage?->query->get('id'));
+			$zeile = $this->nachweise->zeile((int) $eingabe->get('id'));
 
 			if (null !== $zeile && 'frontend' === $zeile['quelle']) {
 				$dca['palettes']['default'] = str_replace('{person_legend},member,dokumentart;', '', $dca['palettes']['default']);
@@ -248,7 +252,7 @@ class NachweisListener
 	public function statusPruefen(mixed $wert, DataContainer $dc): mixed
 	{
 		$endung = substr((string) $dc->inputName, \strlen((string) $dc->field));
-		$act = Aktion::act($this->requestStack->getCurrentRequest());
+		$act = Aktion::act($this->framework);
 		$artAusFormular = \in_array($act, array('editall', 'overrideall'), true) ? null : Input::post('dokumentart'.$endung);
 		$artId = (int) ($artAusFormular ?: ($this->nachweise->zeile((int) $dc->id)['dokumentart'] ?? 0));
 		$art = $this->arten->eine($artId);

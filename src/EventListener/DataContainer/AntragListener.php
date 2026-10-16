@@ -13,6 +13,7 @@ namespace Schachbulle\ContaoKinderschutzdokumenteBundle\EventListener\DataContai
 
 use Contao\CoreBundle\DependencyInjection\Attribute\AsCallback;
 use Contao\CoreBundle\Exception\AccessDeniedException;
+use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\DataContainer;
 use Contao\Date;
 use Contao\StringUtil;
@@ -52,7 +53,9 @@ class AntragListener
 	 * @param Einstellungen           $einstellungen   Die Freischaltgruppe
 	 * @param Freischaltung           $freischaltung   Prüfung und Folgen
 	 * @param MeldungListener         $meldungen       Hinweise, die „Speichern und schließen“ überstehen
-	 * @param RequestStack            $requestStack    Aktion und Formularwerte der Anfrage
+	 * @param RequestStack            $requestStack    Formularwerte der Anfrage (Begründung)
+	 * @param ContaoFramework         $framework       Input-Adapter: „act“ und „mode“, wie
+	 *                                                 Contao sie liest (siehe Sicherheit\Aktion)
 	 */
 	public function __construct(
 		private readonly Zugang $zugang,
@@ -63,6 +66,7 @@ class AntragListener
 		private readonly Freischaltung $freischaltung,
 		private readonly MeldungListener $meldungen,
 		private readonly RequestStack $requestStack,
+		private readonly ContaoFramework $framework,
 	) {
 	}
 
@@ -96,12 +100,12 @@ class AntragListener
 	public function beimLaden(?DataContainer $dc = null): void
 	{
 		$this->zugang->verlange();
-		Verschiebesperre::pruefe($this->requestStack->getCurrentRequest());
-		Kopiersperre::pruefe($this->requestStack->getCurrentRequest());
-		// Über Aktion: kleingeschrieben, weil „act=editall“ oder „act=Edit“
-		// über $dc->$act() dieselbe Methode ausführen; ein Wert aus anderen
-		// Zeichen (4.13 normalisiert „ed&#105;tAll“ zu „editAll“) ergibt 403.
-		$act = Aktion::act($this->requestStack->getCurrentRequest());
+		Verschiebesperre::pruefe($this->framework);
+		Kopiersperre::pruefe($this->framework);
+		// Über Aktion: so, wie Contao „act“ für $dc->$act() liest (4.13
+		// normalisiert Werte und Schlüssel), und kleingeschrieben, weil
+		// „act=editall“ oder „act=Edit“ dieselbe Methode ausführen.
+		$act = Aktion::act($this->framework);
 
 		if (\in_array($act, self::SAMMELAKTIONEN, true)) {
 			throw new AccessDeniedException('Anträge lassen sich nur einzeln bearbeiten.');

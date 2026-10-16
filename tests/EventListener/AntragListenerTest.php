@@ -22,6 +22,7 @@ use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Freischaltung;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Zugang;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\EventListener\DataContainer\AntragListener;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\EventListener\MeldungListener;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\Tests\EingabeAttrappe;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 
@@ -30,6 +31,8 @@ use Symfony\Component\HttpFoundation\RequestStack;
  */
 class AntragListenerTest extends TestCase
 {
+	use EingabeAttrappe;
+
 	/**
 	 * Legt eine kleine DCA und die nötigen Texte in die Globalen.
 	 */
@@ -490,6 +493,7 @@ class AntragListenerTest extends TestCase
 			$ersatz['freischaltung'] ?? $this->createMock(Freischaltung::class),
 			$ersatz['meldungen'] ?? $this->createMock(MeldungListener::class),
 			$stapel,
+			$this->eingabe($abfrage),
 		);
 	}
 }

@@ -12,7 +12,7 @@ declare(strict_types=1);
 namespace Schachbulle\ContaoKinderschutzdokumenteBundle\Sicherheit;
 
 use Contao\CoreBundle\Exception\AccessDeniedException;
-use Symfony\Component\HttpFoundation\Request;
+use Contao\CoreBundle\Framework\ContaoFramework;
 
 /**
  * Sperrt das Kopieren von Nachweisen und Anträgen.
@@ -36,14 +36,14 @@ final class Kopiersperre
 	 * Zwischenablage; der eigentliche Kopiervorgang läuft danach über
 	 * „act=copy“ und wird dort gesperrt.
 	 *
-	 * @param Request|null $anfrage Die laufende Anfrage; null (etwa auf der
-	 *                              Kommandozeile) sperrt nichts
+	 * @param ContaoFramework $framework Das Framework, dessen Input-Adapter
+	 *                                   Aktion liest; ohne Anfrage keine Sperre
 	 *
-	 * @throws AccessDeniedException Bei einer Kopieraktion
+	 * @throws AccessDeniedException Bei einer Kopieraktion oder einem ungültigen „act“
 	 */
-	public static function pruefe(?Request $anfrage): void
+	public static function pruefe(ContaoFramework $framework): void
 	{
-		if (\in_array(Aktion::act($anfrage), array('copy', 'copyall'), true)) {
+		if (\in_array(Aktion::act($framework), array('copy', 'copyall'), true)) {
 			throw new AccessDeniedException('Kinderschutz-Datensätze lassen sich nicht kopieren.');
 		}
 	}

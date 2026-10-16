@@ -12,82 +12,90 @@ declare(strict_types=1);
 namespace Schachbulle\ContaoKinderschutzdokumenteBundle\Sicherheit;
 
 use Contao\CoreBundle\Exception\AccessDeniedException;
-use Symfony\Component\HttpFoundation\Request;
+use Contao\CoreBundle\Framework\ContaoFramework;
+use Contao\Input;
 
 /**
  * Ermittelt „act“ und „mode“ einer Backend-Anfrage so, wie Contao sie ausführt.
  *
- * Die Sperren des Bundles (Verschiebesperre, Kopiersperre, Sammelaktionen,
- * Palettenwahl) lesen die Adresse über den RequestStack, Contao dagegen über
- * Contao\Input und ruft am Ende $dc->$act() auf. Beides kann auseinanderfallen:
+ * Maßgeblich ist, was Contao aufruft: Backend.php liest die Aktion mit
+ * Input::get('act') und ruft dann $dc->$act() auf (4.13 Z. 491/667, 5.7
+ * Z. 378/464). Die Sperren des Bundles lesen deshalb denselben Wert über
+ * denselben Weg – den Input-Adapter des ContaoFramework – statt über den
+ * RequestStack. Der rohe Symfony-Wert taugt nicht:
  *
+ * - Contao 4.13 normalisiert die **Werte** in Input::get() (decodeEntities,
+ *   xssClean, stripTags; Input.php Z. 86–88): aus „cu&#116;“, „cu%00t“ oder
+ *   „cu%0Dt“ wird „cut“.
+ * - Contao 4.13 normalisiert auch die **Schlüssel**: Input::initialize()
+ *   schickt $_GET durch cleanKey() (Z. 59, 425–448), bei doppelten Schlüsseln
+ *   gewinnt der letzte. „ac&#116;=cut“, „ac%0Dt=cut“ oder „mo%0Dde=cut“ sind
+ *   für Symfony andere Parameter, für Contao „act“ bzw. „mode“.
  * - PHP-Methodennamen sind von der Schreibweise unabhängig; „act=cutall“
- *   führt DC_Table::cutAll() aus.
- * - Contao 4.13 normalisiert den Wert in Input::get() (decodeEntities,
- *   xssClean, stripTags; Input.php Z. 86–88). Aus „cu&#116;“, „cu%00t“ oder
- *   „cu%0Dt“ wird dort „cut“, während der rohe Symfony-Wert anders lautet.
- *   Contao 5.7 kodiert nur und normalisiert nicht; dort scheitert ein solcher
- *   Wert am Methodenaufruf.
+ *   führt DC_Table::cutAll() aus. Deshalb wird kleingeschrieben verglichen.
  *
- * Deshalb gilt: Ein Wert aus anderen Zeichen als den erlaubten wird gar nicht
- * erst gedeutet, sondern mit 403 abgewiesen; ein gültiger Wert kommt
- * kleingeschrieben zurück. Contao selbst verwendet für „act“ nur Buchstaben,
- * für „mode“ Buchstaben und Ziffern („cut“, „copy“, „create“, „1“, „2“).
+ * Contao 5.7 normalisiert weder Werte noch Schlüssel, Input::get() liest dort
+ * aus der laufenden Anfrage und kodiert nur Sonderzeichen; der Weg über den
+ * Adapter ist in beiden Fassungen derselbe.
+ *
+ * Zweite Absicherung: Auch der von Contao gelesene Wert muss aus Buchstaben
+ * bestehen („mode“: Buchstaben und Ziffern, Contao nutzt „1“ und „2“), sonst
+ * 403. Ein solcher Wert kann ohnehin keine Methode von DC_Table treffen; die
+ * Prüfung verhindert, dass die Sperren von weiteren Feinheiten der
+ * Normalisierung abhängen (5.7 liefert etwa „cu&amp;#116;“ kodiert zurück).
+ * Wer über diese Grenze stolpert, hat die Adresse von Hand gebaut.
  */
 final class Aktion
 {
 	/**
-	 * Liefert „act“ der Anfrage in Kleinbuchstaben.
+	 * Liefert „act“, wie Contao es liest, in Kleinbuchstaben.
 	 *
-	 * @param Request|null $anfrage Die laufende Anfrage; null (etwa auf der
-	 *                              Kommandozeile) ergibt eine leere Zeichenkette
+	 * @param ContaoFramework $framework Das Framework; im Backend-onload ist es
+	 *                                   initialisiert, ohne Anfrage (etwa auf der
+	 *                                   Kommandozeile) liefert Input::get() null
 	 *
 	 * @return string Die Aktion in Kleinbuchstaben, leer ohne „act“
 	 *
-	 * @throws AccessDeniedException Wenn „act“ keine reine Buchstabenfolge ist
+	 * @throws AccessDeniedException Wenn der Wert keine reine Buchstabenfolge ist
 	 */
-	public static function act(?Request $anfrage): string
+	public static function act(ContaoFramework $framework): string
 	{
-		return self::wert($anfrage, 'act', '/^[A-Za-z]*$/D');
+		return self::wert($framework, 'act', '/^[A-Za-z]*$/D');
 	}
 
 	/**
-	 * Liefert „mode“ der Anfrage in Kleinbuchstaben.
+	 * Liefert „mode“, wie Contao es liest, in Kleinbuchstaben.
 	 *
-	 * @param Request|null $anfrage Die laufende Anfrage; null ergibt eine
-	 *                              leere Zeichenkette
+	 * @param ContaoFramework $framework Das Framework
 	 *
 	 * @return string Der Modus in Kleinbuchstaben, leer ohne „mode“
 	 *
-	 * @throws AccessDeniedException Wenn „mode“ andere Zeichen als Buchstaben
+	 * @throws AccessDeniedException Wenn der Wert andere Zeichen als Buchstaben
 	 *                               und Ziffern enthält
 	 */
-	public static function modus(?Request $anfrage): string
+	public static function modus(ContaoFramework $framework): string
 	{
-		return self::wert($anfrage, 'mode', '/^[A-Za-z0-9]*$/D');
+		return self::wert($framework, 'mode', '/^[A-Za-z0-9]*$/D');
 	}
 
 	/**
-	 * Liest einen Adressparameter und prüft ihn gegen ein Muster.
+	 * Liest einen Adressparameter über Contao\Input und prüft seine Form.
 	 *
 	 * Das Muster trägt den Schalter D: Ohne ihn ließe „$“ einen
-	 * abschließenden Zeilenumbruch („cut%0A“) durch.
+	 * abschließenden Zeilenumbruch durch. Ein Feld („act[]=…“) wird ebenfalls
+	 * abgewiesen.
 	 *
-	 * Gelesen wird über query->all(), damit auch ein Feld („act[]=…“) nicht
-	 * an der Prüfung vorbeikommt; InputBag::get() würde es je nach
-	 * Symfony-Fassung anders behandeln.
-	 *
-	 * @param Request|null $anfrage Die laufende Anfrage
-	 * @param string       $name    Name des Parameters
-	 * @param string       $muster  Erlaubte Form als regulärer Ausdruck
+	 * @param ContaoFramework $framework Das Framework
+	 * @param string          $name      Name des Parameters
+	 * @param string          $muster    Erlaubte Form als regulärer Ausdruck
 	 *
 	 * @return string Der Wert in Kleinbuchstaben, leer ohne Parameter
 	 *
 	 * @throws AccessDeniedException Bei einem Feld oder einem Wert außerhalb des Musters
 	 */
-	private static function wert(?Request $anfrage, string $name, string $muster): string
+	private static function wert(ContaoFramework $framework, string $name, string $muster): string
 	{
-		$wert = null === $anfrage ? null : ($anfrage->query->all()[$name] ?? null);
+		$wert = $framework->getAdapter(Input::class)->get($name);
 
 		if (null === $wert || '' === $wert) {
 			return '';

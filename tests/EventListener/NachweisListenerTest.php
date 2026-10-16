@@ -26,6 +26,7 @@ use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Zugang;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\EventListener\DataContainer\NachweisListener;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\EventListener\MeldungListener;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Regeln\Dokumentart;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\Tests\EingabeAttrappe;
 use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -41,6 +42,8 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  */
 class NachweisListenerTest extends TestCase
 {
+	use EingabeAttrappe;
+
 	/**
 	 * Lädt die DCA-Datei von tl_kinderschutz und die Sprachdatei.
 	 */
@@ -422,9 +425,6 @@ class NachweisListenerTest extends TestCase
 	 */
 	private function listener(string $do, bool $einschlaegig = false, array $abfrage = array(), ?array $zeile = null): NachweisListener
 	{
-		$anfragen = new RequestStack();
-		$anfragen->push(new Request(array_merge(array('do' => $do), $abfrage)));
-
 		$nachweise = $this->createMock(NachweisRepository::class);
 		$nachweise->method('zeile')->willReturn($zeile ?? array('id' => 4, 'dokumentart' => 1));
 
@@ -442,8 +442,8 @@ class NachweisListenerTest extends TestCase
 			$this->createMock(Papierkorb::class),
 			$this->createMock(Einstellungen::class),
 			$this->createMock(UrlGeneratorInterface::class),
-			$anfragen,
 			new MeldungListener(),
+			$this->eingabe(array_merge(array('do' => $do), $abfrage)),
 		);
 	}
 }

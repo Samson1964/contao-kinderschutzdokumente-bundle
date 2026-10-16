@@ -12,9 +12,9 @@ declare(strict_types=1);
 namespace Schachbulle\ContaoKinderschutzdokumenteBundle\EventListener\DataContainer;
 
 use Contao\CoreBundle\DependencyInjection\Attribute\AsCallback;
+use Contao\CoreBundle\Framework\ContaoFramework;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Zugang;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Sicherheit\Verschiebesperre;
-use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
  * Sperrt die Bearbeitungsmasken der Dokumentarten, Veranstaltungen und
@@ -28,14 +28,15 @@ use Symfony\Component\HttpFoundation\RequestStack;
 class ZugangListener
 {
 	/**
-	 * Nimmt die Zugangsprüfung und die Anfrage entgegen.
+	 * Nimmt die Zugangsprüfung und das Framework entgegen.
 	 *
-	 * @param Zugang       $zugang       Die Zugangsprüfung
-	 * @param RequestStack $requestStack Liefert die Aktion der Anfrage für die Verschiebesperre
+	 * @param Zugang          $zugang    Die Zugangsprüfung
+	 * @param ContaoFramework $framework Liefert über den Input-Adapter die Aktion,
+	 *                                   wie Contao sie liest (Verschiebesperre)
 	 */
 	public function __construct(
 		private readonly Zugang $zugang,
-		private readonly RequestStack $requestStack,
+		private readonly ContaoFramework $framework,
 	) {
 	}
 
@@ -53,6 +54,6 @@ class ZugangListener
 	public function __invoke(): void
 	{
 		$this->zugang->verlange();
-		Verschiebesperre::pruefe($this->requestStack->getCurrentRequest());
+		Verschiebesperre::pruefe($this->framework);
 	}
 }
