@@ -115,8 +115,10 @@ class AntragListener
 	 * Die Begründung kommt aus dem Formular: Sie steht in der Palette nach
 	 * dem Stand und ist beim Speichern des Stands noch nicht geschrieben.
 	 * Gelesen wird über den RequestStack statt Contao\Input, damit der
-	 * Listener ohne Contao-Container testbar bleibt; geprüft wird nur, ob
-	 * etwas eingetragen ist, deshalb stört die fehlende Kodierung nicht.
+	 * Listener ohne Contao-Container testbar bleibt. Der Wert kommt dort roh
+	 * an (im Prüfstand 5.7 „<b></b>“, nicht „&#60;b>“); pruefeEntscheidung()
+	 * entkodiert und entfernt Tags vor der Leerprüfung, versteht also beide
+	 * Formen.
 	 * Ein Feldsuffix wie in „Mehrere bearbeiten“ (grund_3) gibt es nicht,
 	 * weil beimLaden() alle Sammelaktionen sperrt.
 	 *

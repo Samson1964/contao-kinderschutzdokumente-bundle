@@ -167,6 +167,11 @@ class Freischaltung
 	 * bekäme trotzdem die Mail mit dem Link. Ablehnen geht auch bei einem
 	 * gesperrten Mitglied.
 	 *
+	 * Beim Ablehnen zählt die Begründung erst nach bereinigeBegruendung():
+	 * Besteht sie nur aus Tags wie „<b></b>“ (roh oder als „&#60;b&#62;“
+	 * kodiert), gilt sie als fehlend. Im Prüfstand 5.7 ging „<b></b>“ sonst
+	 * durch und erschien wörtlich als Begründung in Maske, Frontend und Mail.
+	 *
 	 * @param array<string, mixed>|null $gespeichert Der Antrag vor dem Speichern
 	 * @param string                    $neu         Gewählte Entscheidung
 	 * @param string                    $grund       Eingegebene Begründung
@@ -191,7 +196,11 @@ class Freischaltung
 			return $neu === (string) $gespeichert['status'] ? null : 'antragEntschieden';
 		}
 
-		if (AntragRepository::ABGELEHNT === $neu && '' === trim($grund)) {
+		// Eine Begründung, die nach dem Entfernen echter Tags leer ist, fehlt.
+		// Entitäten erst entkodieren: Contao legt „<“ als „&#60;“ ab, und je
+		// nach Weg kommt der Wert so kodiert an; „&#60;b>&#60;/b>“ wäre sonst
+		// für die Tag-Bereinigung bloßer Text.
+		if (AntragRepository::ABGELEHNT === $neu && '' === $this->bereinigeBegruendung(html_entity_decode($grund, ENT_QUOTES | ENT_HTML5, 'UTF-8'))) {
 			return 'antragGrundFehlt';
 		}
 

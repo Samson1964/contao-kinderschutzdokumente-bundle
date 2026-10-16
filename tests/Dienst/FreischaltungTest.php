@@ -456,6 +456,12 @@ class FreischaltungTest extends Testhilfen
 		$this->assertNull($dienst->pruefeEntscheidung($offen, 'offen', ''));
 		$this->assertSame('antragGrundFehlt', $dienst->pruefeEntscheidung($offen, 'abgelehnt', '  '));
 		$this->assertNull($dienst->pruefeEntscheidung($offen, 'abgelehnt', 'Grund'));
+		// Nur Tags gelten als fehlende Begründung, roh wie kodiert
+		$this->assertSame('antragGrundFehlt', $dienst->pruefeEntscheidung($offen, 'abgelehnt', '<b></b>'));
+		$this->assertSame('antragGrundFehlt', $dienst->pruefeEntscheidung($offen, 'abgelehnt', '&#60;b&#62;&#60;/b&#62;'));
+		$this->assertSame('antragGrundFehlt', $dienst->pruefeEntscheidung($offen, 'abgelehnt', "&#60;b>\r\n &#60;/b>"));
+		$this->assertNull($dienst->pruefeEntscheidung($offen, 'abgelehnt', '<b>Zu ungenau</b>'));
+		$this->assertNull($dienst->pruefeEntscheidung($offen, 'abgelehnt', '&#60;18'));
 		$this->assertSame('mitgliedFehlt', $dienst->pruefeEntscheidung(array('member' => 4711) + $offen, 'freigeschaltet', ''));
 		$this->assertSame('antragEntschieden', $dienst->pruefeEntscheidung($entschieden, 'freigeschaltet', ''));
 		$this->assertNull($dienst->pruefeEntscheidung($entschieden, 'abgelehnt', ''));
