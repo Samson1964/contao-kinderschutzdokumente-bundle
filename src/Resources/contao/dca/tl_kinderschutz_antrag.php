@@ -33,6 +33,9 @@ $GLOBALS['TL_DCA']['tl_kinderschutz_antrag'] = array
 	(
 		'dataContainer' => DC_Table::class,
 		'notCopyable'   => true,
+		// Ohne pid und sorting gibt es nichts zu verschieben; eine
+		// nachgebaute „act=cut“-Adresse endete sonst mit HTTP 500
+		'notSortable'   => true,
 		'permissions'   => array(),
 		'sql'           => array
 		(

@@ -129,6 +129,39 @@ class DcaVertragTest extends TestCase
 	}
 
 	/**
+	 * Die Datensätze der Module lassen sich nicht verschieben.
+	 *
+	 * Die Tabellen haben weder „pid“ noch „sorting“. Eine nachgebaute Adresse
+	 * mit „act=cut“ endete im Prüfstand 5.7 deshalb mit HTTP 500 („Set array
+	 * must not be empty for UPDATE queries“, ohne pid „Cannot load record“).
+	 * Mit „notSortable“ weist DC_Table::cut() sie in 4.13 und 5.7 mit einer
+	 * AccessDeniedException (403) ab.
+	 *
+	 * @dataProvider modultabellen
+	 *
+	 * @param string $tabelle Name der Tabelle, etwa „tl_kinderschutz“
+	 */
+	public function testModultabellenSindNichtVerschiebbar(string $tabelle): void
+	{
+		$this->assertTrue($this->ladeDca($tabelle)['config']['notSortable'] ?? false, $tabelle.' muss notSortable tragen.');
+	}
+
+	/**
+	 * Die Tabellen, die ein Backend-Modul als Liste zeigt.
+	 *
+	 * @return array<string, array{0: string}>
+	 */
+	public function modultabellen(): array
+	{
+		return array(
+			'Nachweise'       => array('tl_kinderschutz'),
+			'Dokumentarten'   => array('tl_kinderschutz_dokumentart'),
+			'Veranstaltungen' => array('tl_kinderschutz_veranstaltung'),
+			'Anträge'         => array('tl_kinderschutz_antrag'),
+		);
+	}
+
+	/**
 	 * Die eigenen Tabellen haben leere Contao-Berechtigungen.
 	 *
 	 * Die Kinderschutz-Module schalten Contaos Modul- und Tabellenrechte ab

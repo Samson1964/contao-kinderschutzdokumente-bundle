@@ -27,6 +27,9 @@ $GLOBALS['TL_DCA']['tl_kinderschutz_dokumentart'] = array
 	(
 		'dataContainer'    => DC_Table::class,
 		'enableVersioning' => true,
+		// Ohne pid und sorting gibt es nichts zu verschieben; eine
+		// nachgebaute „act=cut“-Adresse endete sonst mit HTTP 500
+		'notSortable'      => true,
 		'permissions'      => array(),
 		'sql'              => array
 		(

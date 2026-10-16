@@ -45,6 +45,9 @@ $GLOBALS['TL_DCA']['tl_kinderschutz'] = array
 		// Eine Kopie zeigte auf dieselbe Datei; endgültiges Löschen über den
 		// einen Datensatz nähme sie dem anderen mit
 		'notCopyable'   => true,
+		// Ohne pid und sorting gibt es nichts zu verschieben; eine
+		// nachgebaute „act=cut“-Adresse endete sonst mit HTTP 500
+		'notSortable'   => true,
 		'sql'           => array
 		(
 			'keys' => array
