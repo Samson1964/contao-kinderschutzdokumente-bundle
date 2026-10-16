@@ -34,8 +34,11 @@ class AntragListener
 {
 	/**
 	 * Die Aktionen, die mehrere Datensätze auf einmal bearbeiten.
+	 *
+	 * Kleingeschrieben, weil „act“ vor dem Vergleich kleingeschrieben wird
+	 * (siehe Verschiebesperre::aktion()).
 	 */
-	private const SAMMELAKTIONEN = array('select', 'editAll', 'overrideAll', 'deleteAll', 'copyAll');
+	private const SAMMELAKTIONEN = array('select', 'editall', 'overrideall', 'deleteall', 'copyall');
 
 	/**
 	 * Nimmt die Dienste entgegen; der Listener selbst hält keinen Zustand.
@@ -90,7 +93,9 @@ class AntragListener
 	{
 		$this->zugang->verlange();
 		Verschiebesperre::pruefe($this->requestStack->getCurrentRequest());
-		$act = (string) $this->requestStack->getCurrentRequest()?->query->get('act');
+		// Kleingeschrieben: „act=editall“ oder „act=Edit“ führen über
+		// $dc->$act() dieselbe Methode aus wie die übliche Schreibweise.
+		$act = Verschiebesperre::aktion($this->requestStack->getCurrentRequest());
 
 		if (\in_array($act, self::SAMMELAKTIONEN, true)) {
 			throw new AccessDeniedException('Anträge lassen sich nur einzeln bearbeiten.');

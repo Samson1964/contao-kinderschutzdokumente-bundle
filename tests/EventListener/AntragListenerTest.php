@@ -103,6 +103,13 @@ class AntragListenerTest extends TestCase
 			'Überschreiben'      => array('overrideAll'),
 			'Mehrere löschen'    => array('deleteAll'),
 			'Mehrere kopieren'   => array('copyAll'),
+			// Contao ruft $dc->$act() auf; PHP-Methodennamen sind von der
+			// Schreibweise unabhängig, die Sperre muss es auch sein.
+			'Auswahl groß'                => array('Select'),
+			'Mehrere bearbeiten klein'    => array('editall'),
+			'Überschreiben groß'          => array('OVERRIDEALL'),
+			'Mehrere löschen gemischt'    => array('DeleteAll'),
+			'Mehrere kopieren klein'      => array('copyall'),
 		);
 	}
 
@@ -133,6 +140,9 @@ class AntragListenerTest extends TestCase
 			'Ausschneiden'                 => array('cut', null),
 			'Mehrere ausschneiden'         => array('cutAll', null),
 			'Einfügen nach Ausschneiden' => array('paste', 'cut'),
+			'Ausschneiden groß'            => array('Cut', null),
+			'Mehrere ausschneiden klein'   => array('cutall', null),
+			'Einfügen gemischt'            => array('Paste', 'CUT'),
 		);
 	}
 
@@ -152,6 +162,20 @@ class AntragListenerTest extends TestCase
 	public function testEntschiedenerAntragZeigtNurDenInfokasten(): void
 	{
 		$this->listener(array('zeile' => array('status' => 'abgelehnt', 'entschiedenAm' => 5)))->beimLaden($this->dc(3));
+
+		$this->assertSame('{antrag_legend},info', $GLOBALS['TL_DCA']['tl_kinderschutz_antrag']['palettes']['default']);
+	}
+
+	/**
+	 * Auch „act=Edit“ zeigt bei einem entschiedenen Antrag nur den Infokasten.
+	 *
+	 * Contao führt über $dc->$act() dieselbe Methode edit() aus; ohne
+	 * Kleinschreibung bekäme die Maske wieder Stand und Begründung, und ein
+	 * entschiedener Antrag ließe sich neu entscheiden.
+	 */
+	public function testEditInAndererSchreibweiseZeigtNurDenInfokasten(): void
+	{
+		$this->listener(array('act' => 'Edit', 'zeile' => array('status' => 'freigeschaltet', 'entschiedenAm' => 5)))->beimLaden($this->dc(3));
 
 		$this->assertSame('{antrag_legend},info', $GLOBALS['TL_DCA']['tl_kinderschutz_antrag']['palettes']['default']);
 	}

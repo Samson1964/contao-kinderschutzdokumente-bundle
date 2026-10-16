@@ -38,6 +38,12 @@ final class Verschiebesperre
 	 * ausdrücklich). „paste“ mit „mode=copy“ oder ohne Modus bleibt unberührt;
 	 * Kopieren regelt „notCopyable“ der jeweiligen DCA.
 	 *
+	 * „act“ und „mode“ werden vor dem Vergleich kleingeschrieben: Contao ruft
+	 * für jede Aktion, die es nicht selbst abfängt, $dc->$act() auf, und
+	 * PHP-Methodennamen sind von der Schreibweise unabhängig. „act=Cut“ oder
+	 * „act=cutall“ landeten sonst in DC_Table::cut()/cutAll(), ohne dass ein
+	 * Vergleich mit „cut“/„cutAll“ greift (in 4.13 und 5.7 gleich).
+	 *
 	 * @param Request|null $anfrage Die laufende Anfrage; null (etwa auf der
 	 *                              Kommandozeile) sperrt nichts
 	 *
@@ -45,11 +51,31 @@ final class Verschiebesperre
 	 */
 	public static function pruefe(?Request $anfrage): void
 	{
-		$act = (string) $anfrage?->query->get('act');
-		$modus = (string) $anfrage?->query->get('mode');
+		$act = self::aktion($anfrage);
+		$modus = strtolower((string) $anfrage?->query->get('mode'));
 
-		if (\in_array($act, array('cut', 'cutAll'), true) || ('paste' === $act && 'cut' === $modus)) {
+		if (\in_array($act, array('cut', 'cutall'), true) || ('paste' === $act && 'cut' === $modus)) {
 			throw new AccessDeniedException('Kinderschutz-Datensätze lassen sich nicht verschieben.');
 		}
+	}
+
+	/**
+	 * Liefert die Aktion der Anfrage („act“) in Kleinbuchstaben.
+	 *
+	 * Contao vergleicht „act“ an einigen Stellen wörtlich, ruft aber am Ende
+	 * $dc->$act() auf; PHP-Methodennamen sind von der Schreibweise
+	 * unabhängig. „act=editall“ führt also DC_Table::editAll() aus, obwohl
+	 * ein Vergleich mit „editAll“ nicht greift. Wer eine Aktion sperren oder
+	 * an ihr etwas einrichten will, vergleicht deshalb diesen Wert mit
+	 * kleingeschriebenen Soll-Werten.
+	 *
+	 * @param Request|null $anfrage Die laufende Anfrage; null (etwa auf der
+	 *                              Kommandozeile) ergibt eine leere Zeichenkette
+	 *
+	 * @return string Die Aktion in Kleinbuchstaben, leer ohne „act“
+	 */
+	public static function aktion(?Request $anfrage): string
+	{
+		return strtolower((string) $anfrage?->query->get('act'));
 	}
 }

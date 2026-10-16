@@ -120,6 +120,9 @@ class NachweisListenerTest extends TestCase
 			'Mehrere ausschneiden'         => array('kinderschutz_nachweise', array('act' => 'cutAll')),
 			'Einfügen nach Ausschneiden' => array('kinderschutz_nachweise', array('act' => 'paste', 'mode' => 'cut')),
 			'Papierkorb'                   => array('kinderschutz_papierkorb', array('act' => 'cut')),
+			'Ausschneiden groß'            => array('kinderschutz_nachweise', array('act' => 'Cut')),
+			'Mehrere ausschneiden klein'   => array('kinderschutz_nachweise', array('act' => 'cutall')),
+			'Einfügen gemischt'            => array('kinderschutz_nachweise', array('act' => 'PASTE', 'mode' => 'Cut')),
 		);
 	}
 
@@ -205,6 +208,7 @@ class NachweisListenerTest extends TestCase
 		return array(
 			'Mehrere bearbeiten' => array('editAll', '_4'),
 			'Überschreiben'      => array('overrideAll', ''),
+			'Mehrere bearbeiten klein' => array('editall', '_4'),
 		);
 	}
 
@@ -261,6 +265,9 @@ class NachweisListenerTest extends TestCase
 		return array(
 			'Mehrere bearbeiten' => array('editAll'),
 			'Überschreiben'      => array('overrideAll'),
+			// $dc->$act() ist von der Schreibweise unabhängig
+			'Mehrere bearbeiten klein' => array('editall'),
+			'Überschreiben gemischt'   => array('OverrideAll'),
 		);
 	}
 

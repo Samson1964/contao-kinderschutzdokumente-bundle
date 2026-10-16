@@ -108,7 +108,9 @@ class NachweisListener
 		$anfrage = $this->requestStack->getCurrentRequest();
 		Verschiebesperre::pruefe($anfrage);
 		$do = (string) $anfrage?->query->get('do');
-		$act = (string) $anfrage?->query->get('act');
+		// Kleingeschrieben: „act=editall“ führt über $dc->$act() ebenfalls
+		// DC_Table::editAll() aus und darf Person und Art nicht freigeben.
+		$act = Verschiebesperre::aktion($anfrage);
 		$dca = &$GLOBALS['TL_DCA']['tl_kinderschutz'];
 
 		if ('kinderschutz_papierkorb' === $do) {
@@ -136,7 +138,7 @@ class NachweisListener
 			}
 		}
 
-		if ('editAll' === $act || 'overrideAll' === $act) {
+		if ('editall' === $act || 'overrideall' === $act) {
 			$dca['palettes']['default'] = str_replace('{person_legend},member,dokumentart;', '', $dca['palettes']['default']);
 			unset($dca['fields']['member']['inputType'], $dca['fields']['dokumentart']['inputType']);
 		}
@@ -240,8 +242,8 @@ class NachweisListener
 	public function statusPruefen(mixed $wert, DataContainer $dc): mixed
 	{
 		$endung = substr((string) $dc->inputName, \strlen((string) $dc->field));
-		$act = (string) $this->requestStack->getCurrentRequest()?->query->get('act');
-		$artAusFormular = \in_array($act, array('editAll', 'overrideAll'), true) ? null : Input::post('dokumentart'.$endung);
+		$act = Verschiebesperre::aktion($this->requestStack->getCurrentRequest());
+		$artAusFormular = \in_array($act, array('editall', 'overrideall'), true) ? null : Input::post('dokumentart'.$endung);
 		$artId = (int) ($artAusFormular ?: ($this->nachweise->zeile((int) $dc->id)['dokumentart'] ?? 0));
 		$art = $this->arten->eine($artId);
 		$fehler = Pruefung::eingabefehler((string) $wert, (string) Input::post('ablehnungsgrund'.$endung), (string) Input::post('einschlaegig'.$endung), null !== $art && $art->einschlaegigAbfragen);
