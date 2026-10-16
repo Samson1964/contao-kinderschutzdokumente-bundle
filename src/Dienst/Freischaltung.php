@@ -237,6 +237,13 @@ class Freischaltung
 	/**
 	 * Schaltet frei: Gruppe, Veranstaltungen, Merker, Mail.
 	 *
+	 * Angemeldet wird zu den Veranstaltungen des Antrags und zu denen aller
+	 * übrigen offenen Anträge des Mitglieds, die dabei mit geschlossen werden
+	 * (AntragRepository::weitereOffene() und schliesseOffene()). Eine
+	 * Veranstaltung, die inzwischen nicht mehr wählbar oder vorbei ist, fällt
+	 * still weg: VeranstaltungRepository::anmelden() lehnt sie ab, die
+	 * Freischaltung selbst gilt trotzdem.
+	 *
 	 * Fehlen Mitglied oder Gruppe trotz Eingabeprüfung (etwa gleichzeitig
 	 * gelöscht), geht der Antrag zurück auf „offen“, statt halb zu gelten.
 	 *
@@ -263,7 +270,16 @@ class Freischaltung
 		$this->personen->inGruppeAufnehmen($mitglied, $gruppe);
 		$heute = Kalender::tag($jetzt);
 
-		foreach (AntragRepository::veranstaltungenAus($zeile['veranstaltungen']) as $veranstaltung) {
+		// Auch die Veranstaltungen der Anträge, die gleich mit geschlossen werden,
+		// müssen vorher übernommen werden: Danach sind sie nicht mehr „offen“,
+		// und der Wunsch des Mitglieds verfiele stillschweigend.
+		$wuensche = array(AntragRepository::veranstaltungenAus($zeile['veranstaltungen']));
+
+		foreach ($this->antraege->weitereOffene($mitglied, $antrag) as $weiterer) {
+			$wuensche[] = AntragRepository::veranstaltungenAus($weiterer['veranstaltungen']);
+		}
+
+		foreach (array_unique(array_merge(...$wuensche)) as $veranstaltung) {
 			$this->veranstaltungen->anmelden($veranstaltung, $mitglied, $heute, $jetzt);
 		}
 

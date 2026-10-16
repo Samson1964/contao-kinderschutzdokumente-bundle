@@ -102,6 +102,31 @@ class AntragUndGruppeTest extends TestCase
 	}
 
 	/**
+	 * Die übrigen offenen Anträge eines Mitglieds, in der Reihenfolge ihrer Anlage.
+	 *
+	 * Nicht dazu gehören der gerade entschiedene Antrag, Anträge anderer
+	 * Mitglieder, schon entschiedene Anträge und ungespeicherte Entwürfe
+	 * (leerer Stand).
+	 */
+	public function testWeitereOffene(): void
+	{
+		$antraege = new AntragRepository($this->db);
+		$erster = $antraege->anlegen(5, 'erster', array(3), 1000);
+		$zweiter = $antraege->anlegen(5, 'zweiter', array(4), 1100);
+		$selbst = $antraege->anlegen(5, 'selbst', array(), 1200);
+		$antraege->anlegen(6, 'fremd', array(), 1000);
+		$abgelehnt = $antraege->anlegen(5, 'abgelehnt', array(), 500);
+		$antraege->aendern($abgelehnt, array('status' => AntragRepository::ABGELEHNT));
+		$this->db->insert('tl_kinderschutz_antrag', array('member' => 5, 'status' => '', 'beantragtAm' => 3000));
+
+		$weitere = $antraege->weitereOffene(5, $selbst);
+
+		$this->assertSame(array($erster, $zweiter), array_map(static fn (array $zeile): int => (int) $zeile['id'], $weitere));
+		$this->assertSame(array(3), AntragRepository::veranstaltungenAus($weitere[0]['veranstaltungen']));
+		$this->assertSame(array(), $antraege->weitereOffene(7, $selbst));
+	}
+
+	/**
 	 * Unlesbare Veranstaltungslisten ergeben eine leere Liste.
 	 */
 	public function testVeranstaltungenAusKaputtemWert(): void

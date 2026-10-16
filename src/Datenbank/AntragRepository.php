@@ -145,6 +145,31 @@ class AntragRepository
 	}
 
 	/**
+	 * Liefert die übrigen offenen Anträge eines Mitglieds.
+	 *
+	 * Gebraucht beim Freischalten: Die Anträge, die schliesseOffene() gleich
+	 * mit schließt, bringen angekreuzte Veranstaltungen mit, die vorher
+	 * übernommen werden müssen. Gelesen wird vor dem Schließen, danach wären
+	 * sie nicht mehr „offen“.
+	 *
+	 * @param int $mitglied ID des Mitglieds
+	 * @param int $ausser   ID des Antrags, der gerade entschieden wird
+	 *
+	 * @return list<array<string, mixed>> Die offenen Anträge des Mitglieds ohne
+	 *                                    $ausser, der älteste zuerst; leer,
+	 *                                    wenn es keine weiteren gibt. Entschiedene
+	 *                                    Anträge und ungespeicherte Entwürfe
+	 *                                    (leerer Stand) fehlen.
+	 */
+	public function weitereOffene(int $mitglied, int $ausser): array
+	{
+		return $this->db->fetchAllAssociative(
+			'SELECT * FROM tl_kinderschutz_antrag WHERE member = ? AND status = ? AND id != ? ORDER BY id',
+			array($mitglied, self::OFFEN, $ausser)
+		);
+	}
+
+	/**
 	 * Schließt die übrigen offenen Anträge eines frisch freigeschalteten Mitglieds.
 	 *
 	 * Schaltet der Prüfer direkt frei, während noch ein Antrag offen ist,

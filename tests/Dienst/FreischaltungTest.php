@@ -288,6 +288,45 @@ class FreischaltungTest extends Testhilfen
 	}
 
 	/**
+	 * Mit dem Antrag geschlossene Anträge bringen ihre Veranstaltungen mit.
+	 *
+	 * Wer zwei Anträge gestellt hat, bekommt mit der Freischaltung des einen
+	 * auch den anderen geschlossen; seine Veranstaltungen sollen trotzdem
+	 * gelten, statt stillschweigend zu verfallen.
+	 */
+	public function testFreischaltenUebernimmtVeranstaltungenDerMitgeschlossenenAntraege(): void
+	{
+		$lehrgang = Testdatenbank::veranstaltung($this->db, 'Lehrgang', '2026-12-01');
+		$antraege = new AntragRepository($this->db);
+		$entschieden = $this->offenerAntrag(array($this->cup));
+		$mitgeschlossen = $antraege->anlegen($this->carla, 'Lehrgang', array($lehrgang), $this->jetzt - 1800);
+		$this->db->update('tl_kinderschutz_antrag', array('status' => 'freigeschaltet'), array('id' => $entschieden));
+
+		$this->assertTrue($this->dienst()->nachSpeichern($entschieden, 7, $this->jetzt));
+
+		$veranstaltungen = new VeranstaltungRepository($this->db);
+		$this->assertSame(array($this->carla), $veranstaltungen->teilnehmer($this->cup));
+		$this->assertSame(array($this->carla), $veranstaltungen->teilnehmer($lehrgang));
+		$this->assertSame(array('frontend'), $this->db->fetchFirstColumn('SELECT quelle FROM tl_kinderschutz_teilnahme WHERE veranstaltung = ?', array($lehrgang)));
+		$this->assertSame('freigeschaltet', $antraege->zeile($mitgeschlossen)['status']);
+		$this->assertCount(1, $this->mails, 'Das Mitglied bekommt nur eine Mail.');
+	}
+
+	/**
+	 * Beim direkten Freischalten gelten die Veranstaltungen eines noch offenen Antrags.
+	 */
+	public function testDirektFreischaltenUebernimmtVeranstaltungenDesOffenenAntrags(): void
+	{
+		$this->offenerAntrag(array($this->cup));
+		$this->db->insert('tl_kinderschutz_antrag', array('member' => $this->carla, 'wofuer' => 'Telefonat'));
+		$direkt = (int) $this->db->lastInsertId();
+
+		$this->assertTrue($this->dienst()->nachSpeichern($direkt, 7, $this->jetzt));
+
+		$this->assertSame(array($this->carla), (new VeranstaltungRepository($this->db))->teilnehmer($this->cup));
+	}
+
+	/**
 	 * Scheitert die Mail, bleibt die Freischaltung und der Aufrufer erfährt es.
 	 */
 	public function testGescheiterteMailMeldetFalseUndBehaeltDieEntscheidung(): void
