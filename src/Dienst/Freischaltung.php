@@ -1,0 +1,302 @@
+<?php
+
+declare(strict_types=1);
+
+/*
+ * Kinderschutzdokumente-Bundle: Kinderschutz-Unterlagen online einreichen
+ * und prüfen — lauffähig unter Contao 4.13 und Contao 5.7.
+ *
+ * @license LGPL-3.0-or-later
+ */
+
+namespace Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst;
+
+use Psr\Log\LoggerInterface;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\Datenbank\AntragRepository;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\Datenbank\PersonenRepository;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\Datenbank\VeranstaltungRepository;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\Regeln\Berechtigung;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\Regeln\Kalender;
+
+/**
+ * Anträge auf Freischaltung: annehmen, prüfen und entscheiden.
+ *
+ * Freischalten heißt: Das Mitglied kommt in die Gruppe der freigeschalteten
+ * Mitglieder (Einstellungen::gruppe()), die angekreuzten Veranstaltungen
+ * werden wie eine Selbstanmeldung übernommen, und das Mitglied bekommt eine
+ * Mail mit dem Link auf „Meine Unterlagen“. Entziehen gibt es hier nicht;
+ * das erledigt ein Administrator über die Gruppe.
+ *
+ * Wie bei der Prüfung von Unterlagen speichert Contao die Entscheidung
+ * selbst; nachSpeichern() zieht danach die Folgen genau einmal (Merker
+ * „entschiedenAm“) und meldet eine gescheiterte Mail mit false.
+ */
+class Freischaltung
+{
+	/** Höchstlänge der Begründung „Wofür?“ in Zeichen */
+	public const WOFUER_MAX = 500;
+
+	/**
+	 * @param AntragRepository        $antraege         Die Anträge
+	 * @param PersonenRepository      $personen         Mitglieder, Gruppen, Prüferadressen
+	 * @param VeranstaltungRepository $veranstaltungen  Wählbare Veranstaltungen und Anmeldung
+	 * @param Einstellungen           $einstellungen    Die Freischaltgruppe
+	 * @param Benachrichtigung        $benachrichtigung Die Mails
+	 * @param Berechtigung            $berechtigung     Kennt den Hauptadmin
+	 * @param LoggerInterface         $protokoll        Contao-Systemprotokoll
+	 */
+	public function __construct(
+		private readonly AntragRepository $antraege,
+		private readonly PersonenRepository $personen,
+		private readonly VeranstaltungRepository $veranstaltungen,
+		private readonly Einstellungen $einstellungen,
+		private readonly Benachrichtigung $benachrichtigung,
+		private readonly Berechtigung $berechtigung,
+		private readonly LoggerInterface $protokoll,
+	) {
+	}
+
+	/**
+	 * Nimmt einen Antrag aus dem Frontend an.
+	 *
+	 * Die Begründung wird von HTML befreit, an den Rändern getrimmt und auf
+	 * die Höchstlänge WOFUER_MAX geprüft; von den angekreuzten
+	 * Veranstaltungen bleiben nur die, die gerade wählbar sind – eine
+	 * nachgebaute Anfrage kann also keine interne Veranstaltung
+	 * unterschieben. Die Mail an die Prüfer darf scheitern; der Antrag gilt
+	 * trotzdem.
+	 *
+	 * Die Regel „höchstens ein offener Antrag je Mitglied“ wird hier vor dem
+	 * Anlegen geprüft, nicht durch die Datenbank erzwungen: Prüfen und
+	 * Anlegen sind nicht atomar. Schickt dasselbe Mitglied zwei Anfragen
+	 * gleichzeitig ab, können ausnahmsweise zwei offene Anträge entstehen.
+	 * Das wird bei 20 bis 40 Personen hingenommen; die Prüfer sehen beide in
+	 * der Liste, und eine Freischaltung schließt den anderen mit
+	 * (AntragRepository::schliesseOffene()).
+	 *
+	 * Seiteneffekte: legt einen Antrag an, schreibt ins Systemprotokoll (nur
+	 * IDs) und verschickt die Mail an Hauptadmin und Prüfer.
+	 *
+	 * @param int       $mitglied        ID des angemeldeten Mitglieds (aus dem Token)
+	 * @param string    $wofuer          Begründung aus dem Formular
+	 * @param list<int> $veranstaltungen Angekreuzte Veranstaltungs-IDs
+	 * @param int       $jetzt           Aktueller Zeitpunkt
+	 *
+	 * @return string|null Fehlerschlüssel „gruppe“ (nicht eingerichtet),
+	 *                     „wofuer“ (leer oder zu lang) oder „offen“ (es gibt
+	 *                     schon einen offenen Antrag); null bei Erfolg
+	 */
+	public function beantragen(int $mitglied, string $wofuer, array $veranstaltungen, int $jetzt): ?string
+	{
+		if ($this->einstellungen->gruppe() <= 0) {
+			return 'gruppe';
+		}
+
+		$wofuer = trim(strip_tags($wofuer));
+
+		if ('' === $wofuer || mb_strlen($wofuer) > self::WOFUER_MAX) {
+			return 'wofuer';
+		}
+
+		if (null !== $this->antraege->offenerFuer($mitglied)) {
+			return 'offen';
+		}
+
+		$waehlbar = array_map(static fn (array $zeile): int => (int) $zeile['id'], $this->veranstaltungen->waehlbare(Kalender::tag($jetzt)));
+		$gewaehlt = array_values(array_intersect(array_unique(array_map('intval', $veranstaltungen)), $waehlbar));
+		$antrag = $this->antraege->anlegen($mitglied, $wofuer, $gewaehlt, $jetzt);
+		$this->protokoll->info(sprintf('Kinderschutz: Antrag %d von Mitglied %d eingegangen', $antrag, $mitglied));
+
+		$person = $this->personen->mitglied($mitglied);
+
+		if (null !== $person) {
+			$this->benachrichtigung->neuerAntrag($person, $wofuer, $this->namen($gewaehlt), $this->personen->prueferAdressen($this->berechtigung->hauptadmin()));
+		}
+
+		return null;
+	}
+
+	/**
+	 * Zieht nach dem Speichern im Backend die Folgen der Entscheidung.
+	 *
+	 * Ein Datensatz ohne Stand stammt aus „Mitglied freischalten“ und wird
+	 * hier zum direkt freigeschalteten Antrag. Entschiedene Anträge
+	 * (entschiedenAm > 0) bleiben unberührt, offene ebenso.
+	 *
+	 * Seiteneffekte: schreibt tl_kinderschutz_antrag, tl_member.groups und
+	 * tl_kinderschutz_teilnahme, schreibt ins Systemprotokoll und verschickt
+	 * die Mail an das Mitglied.
+	 *
+	 * @param int $antrag  ID des gespeicherten Antrags
+	 * @param int $pruefer ID des Prüfers in tl_user
+	 * @param int $jetzt   Aktueller Zeitpunkt
+	 *
+	 * @return bool false, wenn die Mail an das Mitglied nicht verschickt
+	 *              werden konnte; die Entscheidung bleibt dann trotzdem
+	 */
+	public function nachSpeichern(int $antrag, int $pruefer, int $jetzt): bool
+	{
+		$zeile = $this->antraege->zeile($antrag);
+
+		if (null === $zeile || (int) $zeile['entschiedenAm'] > 0) {
+			return true;
+		}
+
+		$status = (string) $zeile['status'];
+
+		if ('' === $status && (int) $zeile['member'] > 0) {
+			$this->antraege->aendern($antrag, array('status' => AntragRepository::FREIGESCHALTET, 'direkt' => '1', 'beantragtAm' => $jetzt));
+			$status = AntragRepository::FREIGESCHALTET;
+		}
+
+		return match ($status) {
+			AntragRepository::FREIGESCHALTET => $this->freischalten($zeile, $pruefer, $jetzt),
+			AntragRepository::ABGELEHNT      => $this->ablehnen($zeile, $pruefer, $jetzt),
+			default                          => true,
+		};
+	}
+
+	/**
+	 * Prüft eine Entscheidung in der Maske, bevor Contao sie speichert.
+	 *
+	 * @param array<string, mixed>|null $gespeichert Der Antrag vor dem Speichern
+	 * @param string                    $neu         Gewählte Entscheidung
+	 * @param string                    $grund       Eingegebene Begründung
+	 *
+	 * @return string|null Schlüssel unter $GLOBALS['TL_LANG']['MSC']['kinderschutz_be']:
+	 *                     „antragEntschieden“ (Entscheidung wird nachträglich
+	 *                     geändert), „antragGrundFehlt“, „keineGruppe“,
+	 *                     „mitgliedFehlt“; null, wenn alles passt
+	 */
+	public function pruefeEntscheidung(?array $gespeichert, string $neu, string $grund): ?string
+	{
+		if (null === $gespeichert) {
+			return null;
+		}
+
+		if ((int) $gespeichert['entschiedenAm'] > 0) {
+			return $neu === (string) $gespeichert['status'] ? null : 'antragEntschieden';
+		}
+
+		if (AntragRepository::ABGELEHNT === $neu && '' === trim($grund)) {
+			return 'antragGrundFehlt';
+		}
+
+		if (AntragRepository::FREIGESCHALTET === $neu) {
+			if ($this->einstellungen->gruppe() <= 0) {
+				return 'keineGruppe';
+			}
+
+			if (null === $this->personen->mitglied((int) $gespeichert['member'])) {
+				return 'mitgliedFehlt';
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Prüft die Auswahl in „Mitglied freischalten“.
+	 *
+	 * @param int $mitglied Gewähltes Mitglied
+	 * @param int $jetzt    Aktueller Zeitpunkt
+	 *
+	 * @return string|null „keineGruppe“, „mitgliedFehlt“ (gelöscht oder
+	 *                     inaktiv), „schonFreigeschaltet“; null, wenn alles passt
+	 */
+	public function pruefeDirekt(int $mitglied, int $jetzt): ?string
+	{
+		if ($this->einstellungen->gruppe() <= 0) {
+			return 'keineGruppe';
+		}
+
+		if (!$this->personen->istAktivesMitglied($mitglied, $jetzt)) {
+			return 'mitgliedFehlt';
+		}
+
+		if ($this->personen->istInGruppen($mitglied, $this->einstellungen->gruppen(), $jetzt)) {
+			return 'schonFreigeschaltet';
+		}
+
+		return null;
+	}
+
+	/**
+	 * Schaltet frei: Gruppe, Veranstaltungen, Merker, Mail.
+	 *
+	 * Fehlen Mitglied oder Gruppe trotz Eingabeprüfung (etwa gleichzeitig
+	 * gelöscht), geht der Antrag zurück auf „offen“, statt halb zu gelten.
+	 *
+	 * @param array<string, mixed> $zeile   Der Antrag
+	 * @param int                  $pruefer ID des Prüfers
+	 * @param int                  $jetzt   Aktueller Zeitpunkt
+	 *
+	 * @return bool false, wenn die Mail scheiterte
+	 */
+	private function freischalten(array $zeile, int $pruefer, int $jetzt): bool
+	{
+		$antrag = (int) $zeile['id'];
+		$mitglied = (int) $zeile['member'];
+		$person = $this->personen->mitglied($mitglied);
+		$gruppe = $this->einstellungen->gruppe();
+
+		if (null === $person || $gruppe <= 0) {
+			$this->antraege->aendern($antrag, array('status' => AntragRepository::OFFEN));
+			$this->protokoll->error(sprintf('Kinderschutz: Antrag %d nicht freigeschaltet, es fehlt %s', $antrag, null === $person ? 'das Mitglied' : 'die Gruppe'));
+
+			return true;
+		}
+
+		$this->personen->inGruppeAufnehmen($mitglied, $gruppe);
+		$heute = Kalender::tag($jetzt);
+
+		foreach (AntragRepository::veranstaltungenAus($zeile['veranstaltungen']) as $veranstaltung) {
+			$this->veranstaltungen->anmelden($veranstaltung, $mitglied, $heute, $jetzt);
+		}
+
+		$this->antraege->aendern($antrag, array('entschiedenAm' => $jetzt, 'entschiedenVon' => $pruefer, 'tstamp' => $jetzt));
+		$this->antraege->schliesseOffene($mitglied, $antrag, $pruefer, $jetzt);
+		$this->protokoll->info(sprintf('Kinderschutz: Antrag %d freigeschaltet (Mitglied %d)', $antrag, $mitglied));
+
+		return $this->benachrichtigung->freigeschaltet($person);
+	}
+
+	/**
+	 * Lehnt ab: Merker und Mail mit der Begründung.
+	 *
+	 * @param array<string, mixed> $zeile   Der Antrag
+	 * @param int                  $pruefer ID des Prüfers
+	 * @param int                  $jetzt   Aktueller Zeitpunkt
+	 *
+	 * @return bool false, wenn die Mail scheiterte; true auch, wenn das
+	 *              Mitglied inzwischen gelöscht ist
+	 */
+	private function ablehnen(array $zeile, int $pruefer, int $jetzt): bool
+	{
+		$antrag = (int) $zeile['id'];
+		$this->antraege->aendern($antrag, array('entschiedenAm' => $jetzt, 'entschiedenVon' => $pruefer, 'tstamp' => $jetzt));
+		$this->protokoll->info(sprintf('Kinderschutz: Antrag %d abgelehnt', $antrag));
+		$person = $this->personen->mitglied((int) $zeile['member']);
+
+		return null === $person ? true : $this->benachrichtigung->antragAbgelehnt($person, (string) $zeile['grund']);
+	}
+
+	/**
+	 * Liefert die Namen von Veranstaltungen für die Mail.
+	 *
+	 * @param list<int> $ids IDs der Veranstaltungen
+	 *
+	 * @return list<string> Namen; gelöschte als „#ID“
+	 */
+	private function namen(array $ids): array
+	{
+		$namen = array();
+
+		foreach ($ids as $id) {
+			$zeile = $this->veranstaltungen->eine($id);
+			$namen[] = null === $zeile ? '#'.$id : (string) $zeile['name'];
+		}
+
+		return $namen;
+	}
+}
