@@ -172,4 +172,12 @@ $GLOBALS['TL_LANG']['MSC']['kinderschutz_be'] = array
 	'einschlaegigFehlt' => 'Bitte angeben, ob einschlägige Einträge vorliegen.',
 	'mailGescheitert' => 'Die Ablehnung ist gespeichert, aber die Mail an die Person konnte nicht verschickt werden. Bitte die Person direkt informieren.',
 	'nurHauptadmin'   => 'Die Prüferfreigabe kann nur der Hauptadmin ändern.',
+	'antragEntschieden'     => 'Über diesen Antrag ist schon entschieden; die Entscheidung lässt sich nicht mehr ändern.',
+	'antragGrundFehlt'      => 'Bitte eine Begründung angeben; sie geht per Mail an das Mitglied.',
+	'keineGruppe'           => 'Bitte zuerst unter Kinderschutz → Einstellungen die Gruppe der freigeschalteten Mitglieder wählen.',
+	'mitgliedFehlt'         => 'Dieses Mitglied gibt es nicht mehr oder es ist gesperrt.',
+	'schonFreigeschaltet'   => 'Dieses Mitglied ist bereits freigeschaltet.',
+	'antragMailGescheitert' => 'Die Entscheidung ist gespeichert, aber die Mail an das Mitglied konnte nicht verschickt werden. Bitte das Mitglied direkt informieren.',
+	'offeneAntraege'        => '%d offene Anträge auf Freischaltung',
+	'offenerAntrag'         => '1 offener Antrag auf Freischaltung',
 );

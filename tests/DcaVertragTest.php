@@ -74,6 +74,25 @@ class DcaVertragTest extends TestCase
 	}
 
 	/**
+	 * Anträge lassen sich nicht kopieren; eine Kopie trüge die Entscheidung mit.
+	 */
+	public function testAntraegeSindNichtKopierbar(): void
+	{
+		$this->assertTrue($this->ladeDca('tl_kinderschutz_antrag')['config']['notCopyable'] ?? false);
+	}
+
+	/**
+	 * Die Begründung eines Antrags wird entkodiert gespeichert.
+	 *
+	 * Sie geht wörtlich in eine Textmail; ohne decodeEntities stünden dort
+	 * Entitäten wie „&amp;“ (den Rest entkodiert Benachrichtigung::sende()).
+	 */
+	public function testAntragsbegruendungWirdEntkodiert(): void
+	{
+		$this->assertTrue($this->ladeDca('tl_kinderschutz_antrag')['fields']['grund']['eval']['decodeEntities'] ?? false);
+	}
+
+	/**
 	 * Die Antragsliste hat ausdrücklich keine globalen Operationen.
 	 *
 	 * Contao 5.7 ergänzt für jede DC_Table-Tabelle „Mehrere bearbeiten“, solange
@@ -231,6 +250,7 @@ class DcaVertragTest extends TestCase
 			'Dokumentarten'   => array('tl_kinderschutz_dokumentart'),
 			'Veranstaltungen' => array('tl_kinderschutz_veranstaltung'),
 			'Teilnahmen'      => array('tl_kinderschutz_teilnahme'),
+			'Anträge'         => array('tl_kinderschutz_antrag'),
 		);
 	}
 

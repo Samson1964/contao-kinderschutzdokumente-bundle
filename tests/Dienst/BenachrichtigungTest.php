@@ -93,6 +93,24 @@ class BenachrichtigungTest extends Testhilfen
 	}
 
 	/**
+	 * Kodiert gespeicherte Eingaben erscheinen in der Textmail als Zeichen.
+	 *
+	 * Contao speichert Backend-Textfelder mit Entitäten (4.13
+	 * Input::encodeSpecialChars: „(“ → „&#40;“, „<“ → „&#60;“), Namen aus
+	 * tl_member ebenso. In einer reinen Textmail stünden sonst die Entitäten.
+	 */
+	public function testKodierteWerteWerdenEntkodiert(): void
+	{
+		$anna = array_merge(self::ANNA, array('lastname' => 'Adler &amp; Söhne'));
+
+		$this->assertTrue($this->dienst()->abgelehnt($anna, 'Ehrenkodex', 'Unterschrift fehlt &#40;Seite 2&#41; &#60;b&#62; &amp; mehr'));
+
+		$text = $this->mails[0]->getTextBody();
+		$this->assertStringContainsString('Unterschrift fehlt (Seite 2) <b> & mehr', $text);
+		$this->assertStringContainsString('Guten Tag Anna Adler & Söhne', $text);
+	}
+
+	/**
 	 * Ablaufmails nennen Person, Dokumentart, Datum und Link.
 	 *
 	 * Beide Mails gehen an dieselbe Person und führen dieselben Platzhalter

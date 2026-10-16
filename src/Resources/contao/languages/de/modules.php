@@ -16,6 +16,7 @@ $GLOBALS['TL_LANG']['MOD']['kinderschutz'] = 'Kinderschutz';
 $GLOBALS['TL_LANG']['MOD']['kinderschutz_uebersicht'] = array('Übersicht', 'Wer ist vollständig, was fehlt – für alle oder je Veranstaltung');
 $GLOBALS['TL_LANG']['MOD']['kinderschutz_nachweise'] = array('Nachweise', 'Eingereichte Unterlagen prüfen und Prüfvermerke anlegen');
 $GLOBALS['TL_LANG']['MOD']['kinderschutz_papierkorb'] = array('Papierkorb', 'Dateien wiederherstellen oder endgültig löschen');
+$GLOBALS['TL_LANG']['MOD']['kinderschutz_antraege'] = array('Anträge', 'Anträge auf Freischaltung entscheiden und Mitglieder freischalten');
 $GLOBALS['TL_LANG']['MOD']['kinderschutz_veranstaltungen'] = array('Veranstaltungen', 'Veranstaltungen und ihre Teilnehmer');
 $GLOBALS['TL_LANG']['MOD']['kinderschutz_dokumentarten'] = array('Dokumentarten', 'Welche Unterlagen verlangt werden und wie lange sie gelten');
 

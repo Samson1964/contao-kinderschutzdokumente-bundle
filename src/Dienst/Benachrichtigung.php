@@ -281,10 +281,14 @@ class Benachrichtigung
 	 * allen Administratoren offen, und der Text des Servers enthält oft die
 	 * Adresse.
 	 *
+	 * Die Platzhalterwerte werden vor dem Einsetzen HTML-entkodiert, weil
+	 * Contao Eingaben kodiert speichert und die Mail reiner Text ist.
+	 *
 	 * @param list<string>          $empfaenger Adressen; leere werden übergangen
 	 * @param string                $vorlage    Schlüssel unter kinderschutz_mail
 	 *                                          (eine der Einstellungen::MAILARTEN)
-	 * @param array<string, string> $werte      Platzhalter und ihre Werte
+	 * @param array<string, string> $werte      Platzhalter und ihre Werte, auch
+	 *                                          kodiert gespeicherte (&#40;, &amp; …)
 	 *
 	 * @return bool true, wenn der Transport die Mail angenommen und
 	 *              verschickt hat; false, wenn Absender oder Empfänger
@@ -308,6 +312,14 @@ class Benachrichtigung
 		list($betreff, $text) = $this->einstellungen->mailvorlage($vorlage);
 		$betreff = '' !== $betreff ? $betreff : (string) $standard[0];
 		$text = '' !== trim($text) ? $text : (string) $standard[1];
+
+		// Die Mail ist reiner Text, die Werte stammen aber oft aus der
+		// Datenbank, wo Contao sie kodiert ablegt: Backend-Textfelder über
+		// Input::encodeSpecialChars („(“ → „&#40;“, „<“ → „&#60;“, auch mit
+		// decodeEntities), Namen in tl_member ebenso. Ohne Entkodieren stünden
+		// in Begründung oder Name Entitäten. Benannte Entitäten werden nur mit
+		// Semikolon erkannt, ein „&filter=“ in einem Link bleibt also stehen.
+		$werte = array_map(static fn (string $wert): string => html_entity_decode($wert, ENT_QUOTES | ENT_HTML5, 'UTF-8'), $werte);
 
 		try {
 			$mail = (new Email())

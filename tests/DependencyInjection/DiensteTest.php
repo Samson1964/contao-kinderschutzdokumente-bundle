@@ -25,6 +25,7 @@ use Schachbulle\ContaoKinderschutzdokumenteBundle\Controller\DateiController;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Controller\FrontendModule\UnterlagenController;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Cron\TaeglicherCron;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\DependencyInjection\ContaoKinderschutzdokumenteExtension;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\EventListener\DataContainer\AntragListener;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Regeln\Berechtigung;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Regeln\Nachweis;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Sicherheit\TabellenVoter;
@@ -72,6 +73,8 @@ class DiensteTest extends TestCase
 
 		$this->assertTrue($container->has(UnterlagenController::class));
 		$this->assertTrue($container->has(TaeglicherCron::class));
+		// Die Maske „Anträge“ braucht acht Dienste, darunter den MeldungListener
+		$this->assertTrue($container->has(AntragListener::class));
 		$this->assertSame(1, $container->getParameter('contao_kinderschutzdokumente.hauptadmin'));
 		$this->assertSame(10, $container->getParameter('contao_kinderschutzdokumente.upload_max_mb'));
 	}

@@ -136,11 +136,15 @@ $GLOBALS['TL_DCA']['tl_kinderschutz_antrag'] = array
 			'eval'      => array('tl_class' => 'w50'),
 			'sql'       => "varchar(16) NOT NULL default ''",
 		),
+		// decodeEntities wie bei den Mailtexten der Einstellungen: Die
+		// Begründung geht wörtlich in eine Textmail. Was Contao trotzdem
+		// kodiert ablegt (4.13 etwa „<“ und „(“), entkodiert
+		// Benachrichtigung::sende() vor dem Einsetzen.
 		'grund' => array
 		(
 			'exclude'   => false,
 			'inputType' => 'textarea',
-			'eval'      => array('tl_class' => 'clr'),
+			'eval'      => array('decodeEntities' => true, 'tl_class' => 'clr'),
 			'sql'       => 'text NULL',
 		),
 		'beantragtAm' => array

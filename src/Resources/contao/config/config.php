@@ -49,6 +49,11 @@ $GLOBALS['BE_MOD']['kinderschutz'] = array
 		'loeschen'                => array(PapierkorbAktionen::class, 'loeschen'),
 		'leeren'                  => array(PapierkorbAktionen::class, 'leeren'),
 	),
+	'kinderschutz_antraege' => array
+	(
+		'tables'                  => array('tl_kinderschutz_antrag'),
+		'disablePermissionChecks' => true,
+	),
 	'kinderschutz_veranstaltungen' => array
 	(
 		'tables'                  => array('tl_kinderschutz_veranstaltung'),
