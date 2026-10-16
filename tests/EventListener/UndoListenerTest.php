@@ -113,6 +113,58 @@ class UndoListenerTest extends TestCase
 	}
 
 	/**
+	 * Prüfer und Hauptadmin holen eine Kinderschutz-Kopie zurück wie bisher.
+	 */
+	public function testPrueferDarfWiederherstellen(): void
+	{
+		$this->listener(array('act' => 'undo', 'id' => (string) $this->kopien['tl_kinderschutz']), $this->zugang(true))();
+
+		// Keine Ausnahme und kein Filter: der Kern entscheidet allein
+		$this->assertArrayNotHasKey('filter', $GLOBALS['TL_DCA']['tl_undo']['list']['sorting']);
+	}
+
+	/**
+	 * Verschieben ist ohne Freigabe pauschal gesperrt, auch ohne ID.
+	 *
+	 * tl_undo ist nicht „notSortable“; über einen nachgebauten
+	 * tl_select-POST und „act=cutAll&pid=N&mode=2“ ließe sich sonst der
+	 * Besitzer (pid) eines verborgenen Schritts umschreiben.
+	 *
+	 * @dataProvider verschiebeaktionen
+	 *
+	 * @param array<string, string> $abfrage act und weitere Werte
+	 */
+	public function testVerschiebenGesperrt(array $abfrage): void
+	{
+		$this->expectException(AccessDeniedException::class);
+		$this->listener($abfrage, $this->zugang(false))();
+	}
+
+	/**
+	 * Die gesperrten Verschiebeaktionen.
+	 *
+	 * @return array<string, array{0: array<string, string>}>
+	 */
+	public static function verschiebeaktionen(): array
+	{
+		return array(
+			'Mehrere ausschneiden'         => array(array('act' => 'cutAll', 'pid' => '3', 'mode' => '2')),
+			'Ausschneiden fremder Schritt' => array(array('act' => 'cut', 'id' => '3', 'pid' => '1', 'mode' => '2')),
+			'Einfügen'                     => array(array('act' => 'paste', 'mode' => 'copy')),
+			'Gemischte Schreibweise'       => array(array('act' => 'CUTALL')),
+		);
+	}
+
+	/**
+	 * Ein „act“ mit anderen Zeichen als Buchstaben ist von Hand gebaut: 403.
+	 */
+	public function testActMitFremdzeichenGesperrt(): void
+	{
+		$this->expectException(AccessDeniedException::class);
+		$this->listener(array('act' => 'cu&#116;All'), $this->zugang(false))();
+	}
+
+	/**
 	 * Ohne Backend-Benutzer (Konsole, Cron) geschieht nichts.
 	 */
 	public function testOhneBenutzerNichts(): void
@@ -172,7 +224,8 @@ class UndoListenerTest extends TestCase
 		$this->listener(array('act' => $act, 'id' => (string) $this->kopien['tl_news']), $this->zugang(false))();
 		$this->listener(array('act' => $act, 'id' => (string) $this->kopien['tlXkinderschutz']), $this->zugang(false))();
 
-		$this->addToAssertionCount(1);
+		// Keine Ausnahme in beiden Aufrufen
+		$this->addToAssertionCount(2);
 	}
 
 	/**
@@ -195,7 +248,8 @@ class UndoListenerTest extends TestCase
 	{
 		$this->listener(array('act' => 'show', 'id' => '999'), $this->zugang(false))();
 
-		$this->addToAssertionCount(1);
+		// Keine Ausnahme; der Filter steht trotzdem
+		$this->assertCount(1, $GLOBALS['TL_DCA']['tl_undo']['list']['sorting']['filter']);
 	}
 
 	/**

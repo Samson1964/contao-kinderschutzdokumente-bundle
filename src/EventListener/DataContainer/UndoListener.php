@@ -24,8 +24,9 @@ use Schachbulle\ContaoKinderschutzdokumenteBundle\Sicherheit\Aktion;
  * allen ohne Prüferfreigabe und sperrt ihren Einzelaufruf.
  *
  * Contao legt vor jedem Löschen eine Kopie des Datensatzes in tl_undo ab
- * (fromTable, data serialisiert; 5.7 zusätzlich eine fertige Vorschau in
- * „preview“, RecordPreviewListener). Nicht-Administratoren sehen dort nur
+ * (fromTable, data serialisiert, dazu in beiden Fassungen eine fertige
+ * Vorschau in „preview“: RecordPreviewListener schreibt sie, 4.13 Z. 72,
+ * Undo\LabelListener zeigt sie in der Liste, 4.13 Z. 67). Nicht-Administratoren sehen dort nur
  * eigene Schritte, Administratoren alle:
  *
  * - 4.13: tl_undo::checkPermission() (dca/tl_undo.php) setzt für
@@ -48,10 +49,12 @@ use Schachbulle\ContaoKinderschutzdokumenteBundle\Sicherheit\Aktion;
  * 5.7-Anfrage mit Kopfzeile „Contao-Operations“ (Knöpfe einer einzelnen
  * Zeile) rendert über die gefilterte Liste und findet die Zeile nicht.
  *
- * Sammelaktionen brauchen keine eigene Sperre: tl_undo ist in beiden
- * Fassungen „closed“, „notEditable“, „notCopyable“ und „notDeletable“;
- * editAll, overrideAll, copyAll und deleteAll brechen im Kern ab, „select“
- * zeigt nur die gefilterte Liste.
+ * Sammelaktionen: tl_undo ist in beiden Fassungen „closed“, „notEditable“,
+ * „notCopyable“ und „notDeletable“; editAll, overrideAll, copyAll und
+ * deleteAll brechen im Kern ab, „select“ zeigt nur die gefilterte Liste.
+ * Nicht gesperrt ist dagegen das Verschieben (kein „notSortable“): cutAll
+ * arbeitet mit den IDs aus einem POST, nicht aus der Liste. Deshalb sperrt
+ * der Listener cut, cutAll und paste für Benutzer ohne Freigabe pauschal.
  */
 class UndoListener
 {
@@ -93,8 +96,9 @@ class UndoListener
 	 *
 	 * Seiteneffekt: ergänzt $GLOBALS['TL_DCA']['tl_undo']['list']['sorting']['filter'].
 	 *
-	 * @throws AccessDeniedException Bei einem Einzelaufruf („act“ mit „id“) einer
-	 *                               Kinderschutz-Kopie, bei einer ID, die nicht
+	 * @throws AccessDeniedException Bei cut, cutAll und paste (in jeder
+	 *                               Schreibweise), bei einem Einzelaufruf („act“
+	 *                               mit „id“) einer Kinderschutz-Kopie, bei einer ID, die nicht
 	 *                               nur aus Ziffern besteht, oder einem „act“
 	 *                               außerhalb der Buchstaben (Aktion::act)
 	 */
@@ -107,8 +111,19 @@ class UndoListener
 
 		$GLOBALS['TL_DCA']['tl_undo']['list']['sorting']['filter'][] = array(self::FILTER, str_replace('_', '!_', self::PRAEFIX).'%');
 
-		if ('' === Aktion::act($this->framework)) {
+		$act = Aktion::act($this->framework);
+
+		if ('' === $act) {
 			return;
+		}
+
+		// tl_undo ist nicht „notSortable“: Ein nachgebauter tl_select-POST mit
+		// „act=cutAll&pid=N&mode=2“ schriebe sonst über cut() und
+		// getNewPosition() den Besitzer (pid) auch verborgener Schritte um
+		// (5.7 DC_Table::cutAll() ab Z. 977). Contao bietet Verschieben hier
+		// nirgends an; ohne ID-Bezug geht das nur pauschal.
+		if (\in_array($act, array('cut', 'cutall', 'paste'), true)) {
+			throw new AccessDeniedException('Verschieben ist unter „Wiederherstellen“ gesperrt.');
 		}
 
 		$id = $this->framework->getAdapter(Input::class)->get('id');
