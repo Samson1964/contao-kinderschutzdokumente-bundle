@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace Schachbulle\ContaoKinderschutzdokumenteBundle\Tests\DependencyInjection;
 
 use Contao\CoreBundle\Csrf\ContaoCsrfTokenManager;
+use Contao\CoreBundle\DependencyInjection\Configuration as ContaoKonfiguration;
 use Contao\CoreBundle\Framework\ContaoFramework;
 use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\TestCase;
@@ -27,6 +28,7 @@ use Schachbulle\ContaoKinderschutzdokumenteBundle\DependencyInjection\ContaoKind
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Regeln\Berechtigung;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Regeln\Nachweis;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Sicherheit\TabellenVoter;
+use Symfony\Component\Config\Definition\Processor;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Mailer\Transport\TransportInterface;
@@ -86,6 +88,36 @@ class DiensteTest extends TestCase
 		$this->assertSame('/srv/ablage', $container->getParameter('contao_kinderschutzdokumente.speicherpfad'));
 		$this->assertSame(array('%contao_kinderschutzdokumente.speicherpfad%'), $container->getDefinition(Dateiablage::class)->getArguments());
 		$this->assertSame(4, $container->getParameter('contao_kinderschutzdokumente.upload_max_mb'));
+	}
+
+	/**
+	 * Das Symbol der Menügruppe kommt über contao.backend.custom_css auf jede
+	 * Backend-Seite, und Contaos Konfigurationsbaum nimmt den Eintrag an.
+	 *
+	 * Geprüft wird gegen den Baum des installierten Kerns (Contao 5.7); der
+	 * Schlüssel backend.custom_css steht in 4.13 gleich aufgebaut in
+	 * Configuration.php. Eine eigene custom_css-Angabe des Projekts geht
+	 * dabei nicht verloren: Listen werden beim Zusammenführen angehängt.
+	 */
+	public function testMenueSymbolAufJederBackendSeite(): void
+	{
+		$container = new ContainerBuilder();
+		(new ContaoKinderschutzdokumenteExtension())->prepend($container);
+
+		$stil = 'bundles/contaokinderschutzdokumente/menue.css';
+		$this->assertSame(array(array('backend' => array('custom_css' => array($stil)))), $container->getExtensionConfig('contao'));
+
+		$kern = (new Processor())->processConfiguration(
+			new ContaoKonfiguration(\dirname(__DIR__, 2)),
+			array(array('backend' => array('custom_css' => array('files/eigenes.css'))), $container->getExtensionConfig('contao')[0]),
+		);
+		$this->assertSame(array('files/eigenes.css', $stil), $kern['backend']['custom_css']);
+
+		// Die Maske liegt neben der CSS-Datei, die sie relativ anspricht
+		$oeffentlich = \dirname(__DIR__, 2).'/src/Resources/public/';
+		$this->assertStringContainsString('url("menue.svg")', (string) file_get_contents($oeffentlich.'menue.css'));
+		$this->assertStringContainsString('.group-kinderschutz', (string) file_get_contents($oeffentlich.'menue.css'));
+		$this->assertNotFalse(simplexml_load_file($oeffentlich.'menue.svg'));
 	}
 
 	/**

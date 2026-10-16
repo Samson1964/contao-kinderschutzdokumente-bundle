@@ -1,0 +1,30 @@
+/*
+ * Kinderschutzdokumente-Bundle: Symbol der Menügruppe „Kinderschutz“.
+ *
+ * Contao setzt die Symbole seiner eigenen Gruppen als Hintergrundbild, unter
+ * Contao 5 je in einer hellen und einer dunklen Fassung. Dieses Symbol ist
+ * stattdessen eine Maske, die mit der Farbe der Gruppenköpfe gefüllt wird:
+ * --nav-group gibt es erst in Contao 5 (hell #6c7174, dunkel #9fa4a8) und
+ * folgt dort von selbst dem Farbschema; Contao 4.13 kennt die Variable nicht
+ * und bekommt das Grau seiner dunklen Seitenleiste.
+ *
+ * Lage und Größe entsprechen Contaos „background: … 3px 2px no-repeat“ mit
+ * den 13 × 13 Pixel großen Kernsymbolen. Die Datei bindet die Erweiterung
+ * über contao.backend.custom_css auf jeder Backend-Seite ein, weil das Menü
+ * überall steht, nicht nur in den Kinderschutz-Modulen.
+ */
+#tl_navigation .menu_level_0 > li > a.group-kinderschutz {
+	position: relative;
+}
+
+#tl_navigation .menu_level_0 > li > a.group-kinderschutz::before {
+	content: "";
+	position: absolute;
+	top: 2px;
+	left: 3px;
+	width: 13px;
+	height: 13px;
+	background-color: var(--nav-group, #9fa4a8);
+	-webkit-mask: url("menue.svg") no-repeat center / contain;
+	mask: url("menue.svg") no-repeat center / contain;
+}

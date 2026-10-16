@@ -1,5 +1,9 @@
 # Änderungen
 
+## Version 1.1.0 (2026-10-16)
+
+* Add: Eigenes Symbol (Schild mit Herz) für die Menügruppe „Kinderschutz“ im Backend. Es nimmt die Farbe der übrigen Gruppensymbole an, in Contao 4.13 wie in Contao 5.7 hell und dunkel, und steht auf jeder Backend-Seite (eingebunden über `contao.backend.custom_css`; eigene Angaben des Projekts dort bleiben erhalten).
+
 ## Version 1.0.0 (2026-10-16)
 
 * Add: Frontend-Modul „Kinderschutz: Meine Unterlagen“ mit Checkliste je Dokumentart, Upload (PDF, JPG, PNG, Typ am Inhalt erkannt, mit Ausstellungsdatum) und An- und Abmeldung zu Veranstaltungen; ein beanstandetes EFZ erscheint nur als „bitte Rücksprache halten“
