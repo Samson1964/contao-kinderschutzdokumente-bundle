@@ -51,8 +51,11 @@ $GLOBALS['TL_DCA']['tl_kinderschutz_einstellungen'] = array
 		'kinderschutzSeite' => array
 		(
 			'exclude'   => false,
-			'inputType' => 'pageTree',
-			'eval'      => array('fieldType' => 'radio', 'tl_class' => 'clr'),
+			// select statt pageTree: Der Seitenbaum braucht Rechte am Seitenmodul,
+			// die ein Prüfer meist nicht hat. Die Optionen liefert der
+			// EinstellungenListener (Seiten mit dem Frontend-Modul).
+			'inputType' => 'select',
+			'eval'      => array('includeBlankOption' => true, 'chosen' => true, 'tl_class' => 'w50'),
 		),
 		'kinderschutzAbsender' => array
 		(

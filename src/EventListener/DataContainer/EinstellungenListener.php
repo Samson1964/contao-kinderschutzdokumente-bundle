@@ -14,6 +14,7 @@ namespace Schachbulle\ContaoKinderschutzdokumenteBundle\EventListener\DataContai
 use Contao\Config;
 use Contao\CoreBundle\DependencyInjection\Attribute\AsCallback;
 use Contao\CoreBundle\Framework\ContaoFramework;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\Datenbank\SeitenRepository;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Einstellungen;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Zugang;
 
@@ -26,11 +27,13 @@ class EinstellungenListener
 	 * @param Zugang          $zugang        Prüferfreigabe
 	 * @param Einstellungen   $einstellungen Liefert die wirksame Gruppe, auch aus dem alten Schlüssel
 	 * @param ContaoFramework $framework     Zugang zu Config, um den alten Schlüssel zu entfernen
+	 * @param SeitenRepository $seiten       Seiten mit dem Frontend-Modul „Meine Unterlagen“
 	 */
 	public function __construct(
 		private readonly Zugang $zugang,
 		private readonly Einstellungen $einstellungen,
 		private readonly ContaoFramework $framework,
+		private readonly SeitenRepository $seiten,
 	) {
 	}
 
@@ -134,5 +137,52 @@ class EinstellungenListener
 		$config->remove('kinderschutzGruppen');
 
 		return $wert;
+	}
+
+	/**
+	 * Liefert die Auswahl für „Seite mit Meine Unterlagen“.
+	 *
+	 * Ein Seitenbaum (pageTree) bräuchte Rechte am Seitenmodul, die ein Prüfer
+	 * meist nicht hat: Der Knopf „Auswahl ändern“ war für ihn gesperrt, der
+	 * Picker antwortete mit 400. Angeboten werden deshalb die Seiten, auf denen
+	 * das Frontend-Modul als Inhaltselement eingebunden ist (siehe
+	 * SeitenRepository), beschriftet als „Titel (Alias, ID)“. Die gespeicherte
+	 * Seite steht immer dabei, auch wenn das Modul dort nicht (mehr) gefunden
+	 * wird, etwa weil es über das Seitenlayout eingebunden ist; sonst ginge sie
+	 * beim nächsten Speichern verloren. Eine gelöschte Seite erscheint als „#ID“.
+	 *
+	 * @return array<int, string> Seiten-ID => Beschriftung; leer, wenn es weder
+	 *                            eine passende noch eine gespeicherte Seite gibt
+	 */
+	#[AsCallback(table: 'tl_kinderschutz_einstellungen', target: 'fields.kinderschutzSeite.options')]
+	public function seitenOptionen(): array
+	{
+		$optionen = array();
+
+		foreach ($this->seiten->mitUnterlagenModul() as $seite) {
+			$optionen[$seite['id']] = self::seitenName($seite);
+		}
+
+		$gespeichert = $this->einstellungen->seite();
+
+		if ($gespeichert > 0 && !isset($optionen[$gespeichert])) {
+			$seite = $this->seiten->seite($gespeichert);
+			$zusatz = (string) ($GLOBALS['TL_LANG']['tl_kinderschutz_einstellungen']['seiteOhneModul'] ?? 'ohne Frontend-Modul');
+			$optionen[$gespeichert] = (null === $seite ? '#'.$gespeichert : self::seitenName($seite)).' – '.$zusatz;
+		}
+
+		return $optionen;
+	}
+
+	/**
+	 * Beschriftet eine Seite als „Titel (Alias, ID)“.
+	 *
+	 * @param array{id: int, title: string, alias: string} $seite Die Seite
+	 *
+	 * @return string Die Beschriftung; ohne Alias „Titel (ID)“
+	 */
+	private static function seitenName(array $seite): string
+	{
+		return $seite['title'].' ('.('' === $seite['alias'] ? '' : $seite['alias'].', ').$seite['id'].')';
 	}
 }

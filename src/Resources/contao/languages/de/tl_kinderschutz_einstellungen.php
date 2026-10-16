@@ -13,7 +13,8 @@ $GLOBALS['TL_LANG']['tl_kinderschutz_einstellungen']['allgemein_legend'] = 'Allg
 $GLOBALS['TL_LANG']['tl_kinderschutz_einstellungen']['fristen_legend'] = 'Fristen';
 
 $GLOBALS['TL_LANG']['tl_kinderschutz_einstellungen']['kinderschutzGruppe'] = array('Gruppe der freigeschalteten Mitglieder', 'Mitglieder dieser Gruppe sehen die Checkliste und stehen in der Übersicht; „Freischalten“ nimmt in diese Gruppe auf. Bitte eine eigene Gruppe wählen, nicht die Gruppe, in die jede Registrierung fällt.');
-$GLOBALS['TL_LANG']['tl_kinderschutz_einstellungen']['kinderschutzSeite'] = array('Seite mit „Meine Unterlagen“', 'Auf dieser Seite muss das Frontend-Modul „Kinderschutz: Meine Unterlagen“ eingebunden sein. Die Mails verlinken hierher; die Domain muss am Startpunkt eingetragen sein.');
+$GLOBALS['TL_LANG']['tl_kinderschutz_einstellungen']['kinderschutzSeite'] = array('Seite mit „Meine Unterlagen“', 'Angeboten werden die Seiten, auf denen das Frontend-Modul „Kinderschutz: Meine Unterlagen“ als Inhaltselement eingebunden ist; über das Seitenlayout eingebundene Module werden nicht erkannt. Die Mails verlinken hierher; die Domain muss am Startpunkt eingetragen sein.');
+$GLOBALS['TL_LANG']['tl_kinderschutz_einstellungen']['seiteOhneModul'] = 'ohne Frontend-Modul';
 $GLOBALS['TL_LANG']['tl_kinderschutz_einstellungen']['kinderschutzAbsender'] = array('Absenderadresse', 'Leer: die E-Mail-Adresse des Systemadministrators.');
 $GLOBALS['TL_LANG']['tl_kinderschutz_einstellungen']['kinderschutzPapierkorbTage'] = array('Papierkorbfrist in Tagen', 'Danach werden Dateien im Papierkorb endgültig gelöscht. Leer: 30.');
 $GLOBALS['TL_LANG']['tl_kinderschutz_einstellungen']['kinderschutzVorlaufAblauf'] = array('Erinnerung vor Ablauf in Wochen', 'Leer: 8.');

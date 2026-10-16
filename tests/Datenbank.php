@@ -16,7 +16,8 @@ use Doctrine\DBAL\DriverManager;
 
 /**
  * Eine SQLite-Datenbank im Arbeitsspeicher mit den Tabellen des Bundles und
- * den benötigten Spalten aus tl_member und tl_user.
+ * den benötigten Spalten aus tl_member, tl_user, tl_page, tl_article,
+ * tl_module und tl_content.
  *
  * Die Spalten der eigenen Tabellen entsprechen den DCA-Dateien
  * (DatenbankSchemaTest prüft das), die Typen sind vereinfacht. Deshalb
@@ -31,6 +32,10 @@ final class Datenbank
 		"CREATE TABLE tl_kinderschutz (id INTEGER PRIMARY KEY AUTOINCREMENT, tstamp INTEGER NOT NULL DEFAULT 0, member INTEGER NOT NULL DEFAULT 0, dokumentart INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT '', ausstellungsdatum INTEGER NULL, einschlaegig TEXT NOT NULL DEFAULT '', ablehnungsgrund TEXT NULL, bemerkung TEXT NULL, quelle TEXT NOT NULL DEFAULT '', verarbeitet TEXT NOT NULL DEFAULT '', datei TEXT NOT NULL DEFAULT '', dateiname TEXT NOT NULL DEFAULT '', dateityp TEXT NOT NULL DEFAULT '', dateigroesse INTEGER NOT NULL DEFAULT 0, hochgeladenAm INTEGER NOT NULL DEFAULT 0, geprueftAm INTEGER NOT NULL DEFAULT 0, geprueftVon INTEGER NOT NULL DEFAULT 0, gueltigBis INTEGER NULL, gueltigkeit INTEGER NOT NULL DEFAULT 0, papierkorbSeit INTEGER NOT NULL DEFAULT 0, dateiGeloeschtAm INTEGER NOT NULL DEFAULT 0, erinnertVorAblauf INTEGER NOT NULL DEFAULT 0, erinnertAblauf INTEGER NOT NULL DEFAULT 0)",
 		"CREATE TABLE tl_kinderschutz_veranstaltung (id INTEGER PRIMARY KEY AUTOINCREMENT, tstamp INTEGER NOT NULL DEFAULT 0, name TEXT NOT NULL DEFAULT '', ort TEXT NOT NULL DEFAULT '', startDate INTEGER NULL, endDate INTEGER NULL, waehlbar TEXT NOT NULL DEFAULT '')",
 		"CREATE TABLE tl_kinderschutz_teilnahme (id INTEGER PRIMARY KEY AUTOINCREMENT, tstamp INTEGER NOT NULL DEFAULT 0, veranstaltung INTEGER NOT NULL DEFAULT 0, member INTEGER NOT NULL DEFAULT 0, quelle TEXT NOT NULL DEFAULT '', angelegtAm INTEGER NOT NULL DEFAULT 0, erinnertAm INTEGER NOT NULL DEFAULT 0, UNIQUE (veranstaltung, member))",
+		"CREATE TABLE tl_page (id INTEGER PRIMARY KEY AUTOINCREMENT, pid INTEGER NOT NULL DEFAULT 0, title TEXT NOT NULL DEFAULT '', alias TEXT NOT NULL DEFAULT '')",
+		"CREATE TABLE tl_article (id INTEGER PRIMARY KEY AUTOINCREMENT, pid INTEGER NOT NULL DEFAULT 0)",
+		"CREATE TABLE tl_module (id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT NOT NULL DEFAULT '')",
+		"CREATE TABLE tl_content (id INTEGER PRIMARY KEY AUTOINCREMENT, pid INTEGER NOT NULL DEFAULT 0, ptable TEXT NOT NULL DEFAULT '', type TEXT NOT NULL DEFAULT '', module INTEGER NOT NULL DEFAULT 0)",
 		"CREATE TABLE tl_kinderschutz_antrag (id INTEGER PRIMARY KEY AUTOINCREMENT, tstamp INTEGER NOT NULL DEFAULT 0, member INTEGER NOT NULL DEFAULT 0, wofuer TEXT NULL, veranstaltungen BLOB NULL, status TEXT NOT NULL DEFAULT '', grund TEXT NULL, beantragtAm INTEGER NOT NULL DEFAULT 0, entschiedenAm INTEGER NOT NULL DEFAULT 0, entschiedenVon INTEGER NOT NULL DEFAULT 0, direkt TEXT NOT NULL DEFAULT '')",
 	);
 

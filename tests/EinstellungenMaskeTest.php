@@ -64,6 +64,23 @@ class EinstellungenMaskeTest extends TestCase
 	}
 
 	/**
+	 * Die Seite wird aus einer Auswahl gewählt, nicht aus dem Seitenbaum.
+	 *
+	 * Der Seitenbaum braucht Rechte am Seitenmodul; im Prüfstand 4.13 war
+	 * „Auswahl ändern“ für den Prüfer gesperrt. Die Optionen liefert der
+	 * EinstellungenListener.
+	 */
+	public function testSeiteIstEineAuswahl(): void
+	{
+		$feld = $GLOBALS['TL_DCA']['tl_kinderschutz_einstellungen']['fields']['kinderschutzSeite'];
+
+		$this->assertSame('select', $feld['inputType']);
+		$this->assertTrue($feld['eval']['includeBlankOption']);
+		$this->assertTrue($feld['eval']['chosen']);
+		$this->assertArrayNotHasKey('fieldType', $feld['eval']);
+	}
+
+	/**
 	 * Mailtexte überstehen die localconfig über die Callbacks der Felder.
 	 */
 	public function testMailtexteUeberstehenDieKonfigurationsdatei(): void
