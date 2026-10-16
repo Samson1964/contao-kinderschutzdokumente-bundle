@@ -104,6 +104,7 @@ abstract class Testhilfen extends TestCase
 		$verweise = $this->createMock(Verweise::class);
 		$verweise->method('unterlagenseite')->willReturn('https://example.org/unterlagen.html');
 		$verweise->method('uebersicht')->willReturn('https://example.org/contao?do=kinderschutz');
+		$verweise->method('antraege')->willReturn('https://example.org/contao?do=kinderschutz_antraege');
 
 		return $verweise;
 	}

@@ -84,4 +84,17 @@ class Verweise
 	{
 		return $this->router->generate('contao_backend', array_merge(array('do' => 'kinderschutz_uebersicht'), $parameter), UrlGeneratorInterface::ABSOLUTE_URL);
 	}
+
+	/**
+	 * Liefert die absolute Adresse der Liste „Anträge“ im Backend.
+	 *
+	 * Bewusst die Liste und nicht der einzelne Antrag: Ein Bearbeiten-Link
+	 * aus einer Mail bräuchte in 4.13 einen gültigen Anfragetoken.
+	 *
+	 * @return string Die Adresse
+	 */
+	public function antraege(): string
+	{
+		return $this->router->generate('contao_backend', array('do' => 'kinderschutz_antraege'), UrlGeneratorInterface::ABSOLUTE_URL);
+	}
 }

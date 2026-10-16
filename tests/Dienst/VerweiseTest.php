@@ -86,6 +86,21 @@ class VerweiseTest extends Testhilfen
 	}
 
 	/**
+	 * Der Link der Antragsmail führt auf die Liste der Anträge.
+	 */
+	public function testAntraege(): void
+	{
+		$router = $this->createMock(UrlGeneratorInterface::class);
+		$router->expects($this->once())->method('generate')
+			->with('contao_backend', array('do' => 'kinderschutz_antraege'), UrlGeneratorInterface::ABSOLUTE_URL)
+			->willReturn('https://example.org/contao?do=kinderschutz_antraege');
+
+		$verweise = new Verweise($this->createMock(ContaoFramework::class), $router, $this->einstellungen());
+
+		$this->assertSame('https://example.org/contao?do=kinderschutz_antraege', $verweise->antraege());
+	}
+
+	/**
 	 * Eine Seite ohne Konstruktor, deren getAbsoluteUrl() der Test festlegt.
 	 *
 	 * @return \PHPUnit\Framework\MockObject\MockObject&PageModel Das Seitenmock

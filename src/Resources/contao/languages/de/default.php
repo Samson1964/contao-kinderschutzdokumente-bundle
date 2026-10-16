@@ -40,6 +40,21 @@ $GLOBALS['TL_LANG']['MSC']['kinderschutz_mail'] = array
 		'Fehlende Unterlagen für „{veranstaltung}“',
 		"Guten Tag {name},\n\nfür die Veranstaltung „{veranstaltung}“ ({zeitraum}) fehlen von Ihnen noch diese Unterlagen:\n\n{liste}\n\nBitte reichen Sie sie rechtzeitig ein:\n{link}\n\nDiese Nachricht wurde automatisch verschickt.\n",
 	),
+	'antrag' => array
+	(
+		'Neuer Antrag auf Freischaltung: {mitglied}',
+		"Guten Tag,\n\n{mitglied} möchte Kinderschutz-Unterlagen einreichen und bittet um Freischaltung.\n\nWofür:\n{wofuer}\n\nAngekreuzte Veranstaltungen:\n{veranstaltungen}\n\nZur Entscheidung im Backend:\n{link}\n\nDiese Nachricht wurde automatisch verschickt.\n",
+	),
+	'freigeschaltet' => array
+	(
+		'Sie können Ihre Kinderschutz-Unterlagen jetzt einreichen',
+		"Guten Tag {name},\n\nIhr Konto ist für die Kinderschutz-Unterlagen freigeschaltet. Bitte reichen Sie Ihre Unterlagen hier ein:\n{link}\n\nDiese Nachricht wurde automatisch verschickt.\n",
+	),
+	'antragAbgelehnt' => array
+	(
+		'Ihr Antrag auf Freischaltung wurde nicht angenommen',
+		"Guten Tag {name},\n\nIhr Antrag auf Freischaltung für die Kinderschutz-Unterlagen wurde nicht angenommen.\n\nBegründung:\n{grund}\n\nEinen neuen Antrag können Sie hier stellen:\n{link}\n\nDiese Nachricht wurde automatisch verschickt.\n",
+	),
 );
 
 /*

@@ -21,13 +21,15 @@ use Symfony\Component\Mime\Email;
 use Symfony\Component\Mime\Exception\ExceptionInterface as MimeExceptionInterface;
 
 /**
- * Verschickt die fünf Mails des Bundles.
+ * Verschickt die acht Mails des Bundles.
  *
- * Die Texte stehen in languages/de/default.php unter
- * $GLOBALS['TL_LANG']['MSC']['kinderschutz_mail'] und lassen sich im Projekt
- * überschreiben. Platzhalter in geschweiften Klammern ({name}, {dokumentart}
- * …) werden ersetzt. Geladen wird immer Deutsch, auch wenn der Cronjob von
- * der Konsole mit anderer Sprache läuft.
+ * Betreff und Text stehen zuerst in den Einstellungen (Kinderschutz →
+ * Einstellungen, Dienst\Einstellungen::mailvorlage()); ein leeres Feld heißt
+ * Standardtext aus languages/de/default.php unter
+ * $GLOBALS['TL_LANG']['MSC']['kinderschutz_mail']. Platzhalter in geschweiften
+ * Klammern ({name}, {dokumentart} …) werden ersetzt, unbekannte bleiben
+ * stehen. Geladen wird immer Deutsch, auch wenn der Cronjob von der Konsole
+ * mit anderer Sprache läuft.
  *
  * Grundsatz: Mails nennen Person, Dokumentart, Datum und Status, nie ein
  * Prüfergebnis wie „einschlägige Einträge“.
@@ -175,6 +177,59 @@ class Benachrichtigung
 	}
 
 	/**
+	 * Meldet den Prüfern einen neuen Antrag auf Freischaltung.
+	 *
+	 * @param array{firstname: string, lastname: string, email: string} $mitglied        Wer beantragt
+	 * @param string                                                     $wofuer          Begründung aus dem Formular
+	 * @param list<string>                                               $veranstaltungen Namen der angekreuzten
+	 *                                                                                    Veranstaltungen
+	 * @param list<string>                                               $empfaenger      Adressen der Prüfer
+	 *
+	 * @return bool true, wenn die Mail verschickt wurde
+	 */
+	public function neuerAntrag(array $mitglied, string $wofuer, array $veranstaltungen, array $empfaenger): bool
+	{
+		return $this->sende($empfaenger, 'antrag', array(
+			'{mitglied}'        => PersonenRepository::name($mitglied),
+			'{wofuer}'          => $wofuer,
+			'{veranstaltungen}' => array() === $veranstaltungen ? '–' : '- '.implode("\n- ", $veranstaltungen),
+			'{link}'            => $this->verweise->antraege(),
+		));
+	}
+
+	/**
+	 * Teilt einem Mitglied mit, dass es freigeschaltet ist.
+	 *
+	 * @param array{firstname: string, lastname: string, email: string} $mitglied Das Mitglied
+	 *
+	 * @return bool true, wenn die Mail verschickt wurde
+	 */
+	public function freigeschaltet(array $mitglied): bool
+	{
+		return $this->sende(array($mitglied['email']), 'freigeschaltet', array(
+			'{name}' => trim($mitglied['firstname'].' '.$mitglied['lastname']),
+			'{link}' => $this->verweise->unterlagenseite(),
+		));
+	}
+
+	/**
+	 * Teilt einem Mitglied die Ablehnung seines Antrags mit.
+	 *
+	 * @param array{firstname: string, lastname: string, email: string} $mitglied Das Mitglied
+	 * @param string                                                     $grund    Begründung des Prüfers
+	 *
+	 * @return bool true, wenn die Mail verschickt wurde
+	 */
+	public function antragAbgelehnt(array $mitglied, string $grund): bool
+	{
+		return $this->sende(array($mitglied['email']), 'antragAbgelehnt', array(
+			'{name}'  => trim($mitglied['firstname'].' '.$mitglied['lastname']),
+			'{grund}' => $grund,
+			'{link}'  => $this->verweise->unterlagenseite(),
+		));
+	}
+
+	/**
 	 * Gemeinsamer Teil der beiden Ablaufmails.
 	 *
 	 * @param string                                                     $vorlage     „vorAblauf“ oder „ablauf“
@@ -195,7 +250,7 @@ class Benachrichtigung
 	}
 
 	/**
-	 * Setzt eine Mail aus der Sprachdatei zusammen und verschickt sie.
+	 * Setzt eine Mail aus der eigenen Vorlage bzw. der Sprachdatei zusammen und verschickt sie.
 	 *
 	 * Wirft nie wegen des Versands. Scheitert der Aufbau der Mail (eine
 	 * RFC-widrige Empfänger- oder Absenderadresse wie „anna@@example.org“
@@ -228,6 +283,7 @@ class Benachrichtigung
 	 *
 	 * @param list<string>          $empfaenger Adressen; leere werden übergangen
 	 * @param string                $vorlage    Schlüssel unter kinderschutz_mail
+	 *                                          (eine der Einstellungen::MAILARTEN)
 	 * @param array<string, string> $werte      Platzhalter und ihre Werte
 	 *
 	 * @return bool true, wenn der Transport die Mail angenommen und
@@ -248,14 +304,17 @@ class Benachrichtigung
 
 		$this->framework->initialize();
 		$this->framework->getAdapter(System::class)->loadLanguageFile('default', 'de');
-		$text = $GLOBALS['TL_LANG']['MSC']['kinderschutz_mail'][$vorlage] ?? array($vorlage, '');
+		$standard = $GLOBALS['TL_LANG']['MSC']['kinderschutz_mail'][$vorlage] ?? array($vorlage, '');
+		list($betreff, $text) = $this->einstellungen->mailvorlage($vorlage);
+		$betreff = '' !== $betreff ? $betreff : (string) $standard[0];
+		$text = '' !== trim($text) ? $text : (string) $standard[1];
 
 		try {
 			$mail = (new Email())
 				->from($absender)
 				->to(...$empfaenger)
-				->subject(strtr((string) $text[0], $werte))
-				->text(strtr((string) $text[1], $werte));
+				->subject(strtr($betreff, $werte))
+				->text(strtr($text, $werte));
 
 			$gesendet = $this->mailer->send($mail);
 		} catch (MailerExceptionInterface|MimeExceptionInterface $fehler) {

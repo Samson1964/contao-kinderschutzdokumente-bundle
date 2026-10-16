@@ -15,6 +15,7 @@ use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Benachrichtigung;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Einstellungen;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\Mailer\Event\MessageEvent;
 use Symfony\Component\Mailer\Exception\InvalidArgumentException as MailerInvalidArgumentException;
@@ -170,11 +171,11 @@ class BenachrichtigungTest extends Testhilfen
 	}
 
 	/**
-	 * In keiner der fünf Mails bleibt ein Platzhalter stehen.
+	 * In keiner der acht Mails bleibt ein Platzhalter stehen.
 	 *
 	 * Ein vergessener Eintrag in den Ersetzungswerten ließe „{link}“ oder
 	 * „{name}“ wörtlich in der Mail stehen. Geprüft werden Betreff und Text
-	 * aller fünf Mailarten.
+	 * aller acht Mailarten, auch der drei zu Anträgen auf Freischaltung.
 	 */
 	public function testKeinPlatzhalterBleibtStehen(): void
 	{
@@ -184,8 +185,11 @@ class BenachrichtigungTest extends Testhilfen
 		$dienst->vorAblauf(self::ANNA, 'Schulungsnachweis', strtotime('2026-11-30'));
 		$dienst->abgelaufen(self::ANNA, 'Schulungsnachweis', strtotime('2026-10-14'));
 		$dienst->veranstaltung(self::ANNA, array('name' => 'JWM Kreta 11/2026', 'startDate' => strtotime('2026-11-02'), 'endDate' => strtotime('2026-11-12')), array('Führungszeugnis'));
+		$dienst->neuerAntrag(self::ANNA, 'Betreuung beim Herbstcup', array('Herbstcup'), array('pruefer@example.org'));
+		$dienst->freigeschaltet(self::ANNA);
+		$dienst->antragAbgelehnt(self::ANNA, 'Bitte erst mit dem Verein sprechen.');
 
-		$this->assertCount(5, $this->mails);
+		$this->assertCount(8, $this->mails);
 		foreach ($this->mails as $mail) {
 			$this->assertDoesNotMatchRegularExpression('/\{[a-z]+\}/i', $mail->getSubject(), 'Platzhalter im Betreff');
 			$this->assertDoesNotMatchRegularExpression('/\{[a-z]+\}/i', $mail->getTextBody(), 'Platzhalter im Text von „'.$mail->getSubject().'“');
@@ -398,6 +402,74 @@ class BenachrichtigungTest extends Testhilfen
 
 		$this->assertSame(array(), $transport->gesendet);
 		$this->assertSame(array('Kinderschutz: Mail „neu“ an 2 Empfänger nicht verschickt (vor dem Versand verworfen)'), $this->meldungen);
+	}
+
+	/**
+	 * Eine eigene Vorlage aus den Einstellungen ersetzt den Standardtext.
+	 */
+	public function testEigeneVorlageAusDenEinstellungen(): void
+	{
+		$GLOBALS['TL_CONFIG']['kinderschutzMailAbgelehntBetreff'] = 'Rückmeldung zu „{dokumentart}“ &amp; mehr';
+		$GLOBALS['TL_CONFIG']['kinderschutzMailAbgelehntText'] = Einstellungen::verpacke("Hallo {name},\n\nGrund: {grund}\n{link}");
+
+		$this->assertTrue($this->dienst()->abgelehnt(self::ANNA, 'Ehrenkodex', 'unleserlich'));
+
+		$this->assertSame('Rückmeldung zu „Ehrenkodex“ & mehr', $this->mails[0]->getSubject());
+		$this->assertSame("Hallo Anna Adler,\n\nGrund: unleserlich\nhttps://example.org/unterlagen.html", $this->mails[0]->getTextBody());
+	}
+
+	/**
+	 * Leere Felder in den Einstellungen bedeuten Standardtext, auch einzeln.
+	 */
+	public function testLeereVorlageNimmtDenStandardtext(): void
+	{
+		$GLOBALS['TL_CONFIG']['kinderschutzMailAbgelehntBetreff'] = '';
+		$GLOBALS['TL_CONFIG']['kinderschutzMailAbgelehntText'] = Einstellungen::verpacke('Nur der Text ist eigen: {grund}');
+
+		$this->dienst()->abgelehnt(self::ANNA, 'Ehrenkodex', 'unleserlich');
+
+		$this->assertSame('Ihre Unterlage „Ehrenkodex“ wurde nicht anerkannt', $this->mails[0]->getSubject());
+		$this->assertSame('Nur der Text ist eigen: unleserlich', $this->mails[0]->getTextBody());
+	}
+
+	/**
+	 * Die Prüfer erfahren von einem neuen Antrag samt Begründung und Veranstaltungen.
+	 */
+	public function testNeuerAntrag(): void
+	{
+		$this->assertTrue($this->dienst()->neuerAntrag(self::ANNA, "Training U12\nim Verein", array('Herbstcup', 'JWM'), array('pruefer@example.org')));
+
+		$mail = $this->mails[0];
+		$this->assertSame('pruefer@example.org', $mail->getTo()[0]->getAddress());
+		$this->assertSame('Neuer Antrag auf Freischaltung: Adler, Anna', $mail->getSubject());
+		$this->assertStringContainsString("Training U12\nim Verein", $mail->getTextBody());
+		$this->assertStringContainsString("- Herbstcup\n- JWM", $mail->getTextBody());
+		$this->assertStringContainsString('https://example.org/contao?do=kinderschutz_antraege', $mail->getTextBody());
+	}
+
+	/**
+	 * Ohne angekreuzte Veranstaltungen steht ein Strich statt einer leeren Liste.
+	 */
+	public function testNeuerAntragOhneVeranstaltungen(): void
+	{
+		$this->dienst()->neuerAntrag(self::ANNA, 'Betreuung', array(), array('pruefer@example.org'));
+
+		$this->assertStringContainsString("Veranstaltungen:\n–\n", $this->mails[0]->getTextBody());
+	}
+
+	/**
+	 * Freischaltung und Ablehnung eines Antrags gehen an das Mitglied.
+	 */
+	public function testFreigeschaltetUndAntragAbgelehnt(): void
+	{
+		$this->assertTrue($this->dienst()->freigeschaltet(self::ANNA));
+		$this->assertTrue($this->dienst()->antragAbgelehnt(self::ANNA, 'Bitte erst mit dem Verein sprechen.'));
+
+		$this->assertSame('Sie können Ihre Kinderschutz-Unterlagen jetzt einreichen', $this->mails[0]->getSubject());
+		$this->assertStringContainsString('https://example.org/unterlagen.html', $this->mails[0]->getTextBody());
+		$this->assertSame('anna@example.org', $this->mails[1]->getTo()[0]->getAddress());
+		$this->assertSame('Ihr Antrag auf Freischaltung wurde nicht angenommen', $this->mails[1]->getSubject());
+		$this->assertStringContainsString('Bitte erst mit dem Verein sprechen.', $this->mails[1]->getTextBody());
 	}
 
 	/**
