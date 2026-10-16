@@ -29,6 +29,7 @@ use Schachbulle\ContaoKinderschutzdokumenteBundle\DependencyInjection\ContaoKind
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Freischaltung;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\EventListener\DataContainer\AntragListener;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\EventListener\DataContainer\EinstellungenListener;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\EventListener\DataContainer\UndoListener;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Regeln\Berechtigung;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Regeln\Nachweis;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Sicherheit\TabellenVoter;
@@ -84,6 +85,10 @@ class DiensteTest extends TestCase
 		$this->assertTrue($container->has(AntragListener::class));
 		// Die Einstellungsmaske braucht Zugang, Einstellungen und das Framework
 		$this->assertTrue($container->has(EinstellungenListener::class));
+		// Die Sperre unter „Wiederherstellen“ braucht Zugang, Framework und Datenbank
+		$this->assertTrue($container->has(UndoListener::class));
+		$argumente = array_map('strval', $container->getDefinition(UndoListener::class)->getArguments());
+		$this->assertContains(Connection::class, $argumente);
 		$this->assertSame(1, $container->getParameter('contao_kinderschutzdokumente.hauptadmin'));
 		$this->assertSame(10, $container->getParameter('contao_kinderschutzdokumente.upload_max_mb'));
 	}

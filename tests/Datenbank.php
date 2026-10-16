@@ -17,7 +17,7 @@ use Doctrine\DBAL\DriverManager;
 /**
  * Eine SQLite-Datenbank im Arbeitsspeicher mit den Tabellen des Bundles und
  * den benötigten Spalten aus tl_member, tl_user, tl_page, tl_article,
- * tl_module und tl_content.
+ * tl_module, tl_content und tl_undo.
  *
  * Die Spalten der eigenen Tabellen entsprechen den DCA-Dateien
  * (DatenbankSchemaTest prüft das), die Typen sind vereinfacht. Deshalb
@@ -37,6 +37,8 @@ final class Datenbank
 		"CREATE TABLE tl_module (id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT NOT NULL DEFAULT '')",
 		"CREATE TABLE tl_content (id INTEGER PRIMARY KEY AUTOINCREMENT, pid INTEGER NOT NULL DEFAULT 0, ptable TEXT NOT NULL DEFAULT '', type TEXT NOT NULL DEFAULT '', module INTEGER NOT NULL DEFAULT 0)",
 		"CREATE TABLE tl_kinderschutz_antrag (id INTEGER PRIMARY KEY AUTOINCREMENT, tstamp INTEGER NOT NULL DEFAULT 0, member INTEGER NOT NULL DEFAULT 0, wofuer TEXT NULL, veranstaltungen BLOB NULL, status TEXT NOT NULL DEFAULT '', grund TEXT NULL, beantragtAm INTEGER NOT NULL DEFAULT 0, entschiedenAm INTEGER NOT NULL DEFAULT 0, entschiedenVon INTEGER NOT NULL DEFAULT 0, direkt TEXT NOT NULL DEFAULT '')",
+		// Contaos Ablage für „Wiederherstellen“ (UndoListener); Spalten wie in 4.13 und 5.7
+		"CREATE TABLE tl_undo (id INTEGER PRIMARY KEY AUTOINCREMENT, pid INTEGER NOT NULL DEFAULT 0, tstamp INTEGER NOT NULL DEFAULT 0, fromTable TEXT NOT NULL DEFAULT '', query TEXT NULL, affectedRows INTEGER NOT NULL DEFAULT 0, data BLOB NULL, preview BLOB NULL)",
 	);
 
 	/**
