@@ -135,10 +135,18 @@ class Einstellungen
 	 * gelesen und erst danach der Text entkodiert: Umgekehrt stünde nach dem
 	 * Entkodieren ein Anführungszeichen oder Backslash mitten in der
 	 * Zeichenkette, das JSON wäre ungültig, und der Text käme mit äußeren
-	 * Anführungszeichen und wörtlichem „\n“ zurück. Ein Wert, der kein JSON
-	 * ist (etwa ein von Hand eingetragener Klartext), wird nur entkodiert.
+	 * Anführungszeichen und wörtlichem „\n“ zurück.
 	 *
-	 * @param mixed $gespeichert Wert aus der localconfig
+	 * Unterschied der Contao-Fassungen: DC_File::edit() wendet in 4.13 vor dem
+	 * load_callback htmlspecialchars() auf Text- und Textarea-Felder an; die
+	 * Anführungszeichen des JSON kommen dort als „&quot;“ an und das erste
+	 * json_decode() scheitert. In 5.7 kommt der Rohwert. Deshalb wird bei
+	 * einem Fehlschlag noch einmal nach htmlspecialchars_decode() gelesen
+	 * (nur die fünf Zeichen, die htmlspecialchars() maskiert; die Entitäten
+	 * im Text bleiben dabei stehen). Ein Wert, der auch dann kein JSON ist
+	 * (etwa ein von Hand eingetragener Klartext), wird nur entkodiert.
+	 *
+	 * @param mixed $gespeichert Wert aus der localconfig, in 4.13 ggf. von Contao maskiert
 	 *
 	 * @return string Der Text mit Zeilenumbrüchen, oder leer
 	 */
@@ -149,6 +157,10 @@ class Einstellungen
 		}
 
 		$text = json_decode($gespeichert);
+
+		if (!is_string($text)) {
+			$text = json_decode(htmlspecialchars_decode($gespeichert, ENT_QUOTES | ENT_HTML5));
+		}
 
 		return html_entity_decode(is_string($text) ? $text : $gespeichert, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 	}

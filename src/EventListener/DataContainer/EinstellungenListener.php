@@ -71,7 +71,7 @@ class EinstellungenListener
 	 * Nach dem Update steht in der localconfig nur der alte Schlüssel
 	 * „kinderschutzGruppen“; die Maske zeigte die Auswahl sonst leer, obwohl
 	 * die erste alte Gruppe wirkt. Wer dann speichert, übernimmt sie damit
-	 * ausdrücklich.
+	 * ausdrücklich (siehe gruppeSpeichern()).
 	 *
 	 * @param mixed $wert Gespeicherter Wert von „kinderschutzGruppe“ (ID als Zeichenkette, leer oder null)
 	 *
@@ -91,19 +91,29 @@ class EinstellungenListener
 	}
 
 	/**
-	 * Entfernt beim Speichern den alten Schlüssel der Mehrfachauswahl.
+	 * Entfernt beim Speichern den alten Schlüssel der Mehrfachauswahl und
+	 * schreibt dabei den neuen Wert ausdrücklich.
 	 *
 	 * Einstellungen::gruppe() greift auf „kinderschutzGruppen“ zurück, wenn
 	 * „kinderschutzGruppe“ leer ist. Ohne das Entfernen wirkte die alte
 	 * Gruppe nach dem Leeren der neuen Auswahl wieder. DC_File ruft den
 	 * save_callback bei jedem Absenden, also genügt der erste Speichervorgang.
 	 *
-	 * Seiteneffekt: Config::remove() merkt den Schlüssel zum Entfernen vor;
-	 * Contao schreibt die localconfig.php am Ende der Anfrage, zusammen mit
-	 * den übrigen Werten, die DC_File speichert. Die Methode gibt es in
-	 * Contao 4.13 und 5.7.
+	 * Der Wert wird hier selbst geschrieben, weil DC_File ihn nicht schriebe:
+	 * Es vergleicht den Eingabewert lose mit dem aktuellen („7 != "7"“ ist
+	 * falsch) und speichert nur bei einer Abweichung. Wurde die im Übergang
+	 * vorbelegte Gruppe unverändert abgesendet, bliebe „kinderschutzGruppe“
+	 * ungeschrieben, und mit dem entfernten alten Schlüssel wäre die Gruppe
+	 * weg. Config::remove() ändert zudem nur die zu schreibende Datei: Im
+	 * selben Request kann Config::get() den alten Wert weiter liefern, daher
+	 * darf nichts davon abhängen, dass er verschwunden ist.
 	 *
-	 * @param mixed $wert Der neue Wert von „kinderschutzGruppe“
+	 * Seiteneffekt: Config::persist() und Config::remove() merken die
+	 * Änderung vor; Contao schreibt die localconfig.php am Ende der Anfrage,
+	 * zusammen mit den übrigen Werten, die DC_File speichert. Die Methoden
+	 * gibt es in Contao 4.13 und 5.7.
+	 *
+	 * @param mixed $wert Der neue Wert von „kinderschutzGruppe“ (ID, leer wenn geleert)
 	 *
 	 * @return mixed Der Wert unverändert
 	 */
@@ -113,9 +123,15 @@ class EinstellungenListener
 		$this->framework->initialize();
 		$config = $this->framework->getAdapter(Config::class);
 
-		if (null !== $config->get('kinderschutzGruppen')) {
-			$config->remove('kinderschutzGruppen');
+		if (null === $config->get('kinderschutzGruppen')) {
+			return $wert;
 		}
+
+		if ((int) $wert > 0) {
+			$config->persist('kinderschutzGruppe', (int) $wert);
+		}
+
+		$config->remove('kinderschutzGruppen');
 
 		return $wert;
 	}

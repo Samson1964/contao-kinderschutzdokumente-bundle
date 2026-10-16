@@ -126,6 +126,35 @@ class EinstellungenTest extends Testhilfen
 	}
 
 	/**
+	 * Contao 4.13 maskiert den gespeicherten Wert vor dem load_callback, 5.7 nicht.
+	 *
+	 * DC_File::edit() wendet in 4.13 htmlspecialchars() auf Text- und
+	 * Textarea-Felder an, bevor der load_callback läuft; die Anführungszeichen
+	 * des verpackten JSON kommen dort als „&quot;“ an. In 5.7 kommt der Rohwert.
+	 * Beide Wege müssen denselben Klartext ergeben, und eine Rundreise
+	 * (laden, unverändert speichern, laden) darf nichts doppelt verpacken.
+	 */
+	public function testEntpackenMitUndOhneMaskierungDurchContao(): void
+	{
+		$eingabe = "Hallo {name},\r\n\r\n&#34;Zitat&#34; mit &#92; und &#60;b&#62;fett&#60;/b&#62; & \"roh\"\r\nÄÖÜ äöü ß „Grund“: {grund}";
+		$erwartet = "Hallo {name},\n\n\"Zitat\" mit \\ und <b>fett</b> & \"roh\"\nÄÖÜ äöü ß „Grund“: {grund}";
+
+		$gespeichert = eval('return '.$this->ueberConfigEscape(Einstellungen::verpacke($eingabe)).';');
+		$maskiert = htmlspecialchars($gespeichert, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5);
+
+		$this->assertStringContainsString('&quot;', $maskiert);
+		$this->assertSame($erwartet, Einstellungen::entpacke($gespeichert), 'Contao 5.7: Rohwert');
+		$this->assertSame($erwartet, Einstellungen::entpacke($maskiert), 'Contao 4.13: mit htmlspecialchars()');
+
+		// Rundreise: die Maske zeigt den Klartext, Speichern verpackt ihn genau einmal
+		$angezeigt = Einstellungen::entpacke($maskiert);
+		$neuGespeichert = eval('return '.$this->ueberConfigEscape(Einstellungen::verpacke($angezeigt)).';');
+		$this->assertSame($erwartet, $angezeigt);
+		$this->assertSame($erwartet, Einstellungen::entpacke(htmlspecialchars($neuGespeichert, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5)));
+		$this->assertStringStartsWith('"Hallo', $neuGespeichert);
+	}
+
+	/**
 	 * Ungültiges UTF-8 ergibt keinen stillschweigend leeren Text.
 	 *
 	 * json_encode() ohne Ersatzzeichen lieferte false und damit eine leere

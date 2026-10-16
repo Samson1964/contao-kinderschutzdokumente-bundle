@@ -105,14 +105,31 @@ class EinstellungenListenerTest extends TestCase
 	}
 
 	/**
-	 * Beim Speichern verschwindet der alte Schlüssel, solange er noch steht.
+	 * Ohne Änderung abgesendet: der alte Schlüssel geht, der Wert wird ausdrücklich geschrieben.
+	 *
+	 * DC_File schriebe „kinderschutzGruppe“ nicht, weil es den vorbelegten Wert
+	 * lose mit dem Eingabewert vergleicht (7 != "7" ist falsch); ohne
+	 * persist() wäre die Gruppe nach dem Entfernen des alten Schlüssels weg.
 	 */
-	public function testSpeichernEntferntDenAltenSchluessel(): void
+	public function testSpeichernEntferntDenAltenSchluesselUndSchreibtDenWert(): void
 	{
 		$adapter = $this->adapter('a:1:{i:0;s:1:"7";}');
+		$adapter->expects($this->once())->method('persist')->with('kinderschutzGruppe', 7);
 		$adapter->expects($this->once())->method('remove')->with('kinderschutzGruppen');
 
-		$this->assertSame('5', $this->listener(null, null, $adapter)->gruppeSpeichern('5'));
+		$this->assertSame('7', $this->listener(null, null, $adapter)->gruppeSpeichern('7'));
+	}
+
+	/**
+	 * Wurde die Auswahl geleert, geht nur der alte Schlüssel.
+	 */
+	public function testSpeichernGeleertEntferntNurDenAltenSchluessel(): void
+	{
+		$adapter = $this->adapter('a:1:{i:0;s:1:"7";}');
+		$adapter->expects($this->never())->method('persist');
+		$adapter->expects($this->once())->method('remove')->with('kinderschutzGruppen');
+
+		$this->assertSame('', $this->listener(null, null, $adapter)->gruppeSpeichern(''));
 	}
 
 	/**
@@ -122,8 +139,9 @@ class EinstellungenListenerTest extends TestCase
 	{
 		$adapter = $this->adapter(null);
 		$adapter->expects($this->never())->method('remove');
+		$adapter->expects($this->never())->method('persist');
 
-		$this->assertSame('', $this->listener(null, null, $adapter)->gruppeSpeichern(''));
+		$this->assertSame('4', $this->listener(null, null, $adapter)->gruppeSpeichern('4'));
 	}
 
 	/**
@@ -135,7 +153,7 @@ class EinstellungenListenerTest extends TestCase
 	 */
 	private function adapter(?string $alt): MockObject
 	{
-		$adapter = $this->getMockBuilder(Adapter::class)->disableOriginalConstructor()->addMethods(array('get', 'remove'))->getMock();
+		$adapter = $this->getMockBuilder(Adapter::class)->disableOriginalConstructor()->addMethods(array('get', 'remove', 'persist'))->getMock();
 		$adapter->method('get')->with('kinderschutzGruppen')->willReturn($alt);
 
 		return $adapter;

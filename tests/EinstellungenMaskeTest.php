@@ -77,6 +77,25 @@ class EinstellungenMaskeTest extends TestCase
 	}
 
 	/**
+	 * Der load_callback liest den Mailtext auch, wenn Contao 4.13 ihn maskiert hat.
+	 *
+	 * DC_File::edit() wendet in 4.13 htmlspecialchars() an, bevor der
+	 * load_callback läuft; in 5.7 geschieht das nicht.
+	 */
+	public function testLadenMitMaskiertemWert(): void
+	{
+		$feld = $GLOBALS['TL_DCA']['tl_kinderschutz_einstellungen']['fields']['kinderschutzMailAntragText'];
+		$text = "Hallo \"{name}\",\n\nA & B <b> \ äöü";
+		$gespeichert = $feld['save_callback'][0]($text);
+		$maskiert = htmlspecialchars($gespeichert, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5);
+
+		$this->assertSame($text, $feld['load_callback'][0]($gespeichert));
+		$this->assertSame($text, $feld['load_callback'][0]($maskiert));
+		// Rundreise ohne Änderung verpackt nicht doppelt
+		$this->assertSame($gespeichert, $feld['save_callback'][0]($feld['load_callback'][0]($maskiert)));
+	}
+
+	/**
 	 * Unter System → Einstellungen steht nichts mehr vom Bundle.
 	 */
 	public function testNichtMehrUnterSystemEinstellungen(): void
