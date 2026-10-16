@@ -17,13 +17,18 @@ use Contao\FrontendUser;
 use Contao\ModuleModel;
 use Contao\Template;
 use Doctrine\DBAL\Connection;
+use Psr\Log\NullLogger;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Controller\FrontendModule\UnterlagenController;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\Datenbank\AntragRepository;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Datenbank\DokumentartRepository;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Datenbank\NachweisRepository;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Datenbank\PersonenRepository;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Datenbank\VeranstaltungRepository;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Benachrichtigung;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Einreichung;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Freischaltung;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Statusdienst;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\Regeln\Berechtigung;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Regeln\UploadPruefer;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Tests\Datenbank as Testdatenbank;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Tests\Dienst\Testhilfen;
@@ -139,14 +144,17 @@ class UnterlagenControllerTest extends Testhilfen
 	}
 
 	/**
-	 * Mitglieder, die nicht (mehr) zum Kreis der Kinderschutzpflichtigen gehören.
+	 * Konten, die weder Unterlagen einreichen noch einen Antrag stellen dürfen.
+	 *
+	 * Ein aktives Mitglied außerhalb der Freischaltgruppe gehört nicht mehr
+	 * hierher: Es bekommt das Antragsformular (siehe
+	 * testNichtFreigeschaltetSiehtAntragsformular()).
 	 *
 	 * @return array<string, array{0: string}> Fall (siehe mitgliedFuer())
 	 */
 	public static function ohneZugang(): array
 	{
 		return array(
-			'nur in einer anderen Gruppe'    => array('andereGruppe'),
 			'Konto deaktiviert'              => array('gesperrt'),
 			'Konto bereits abgelaufen'       => array('abgelaufen'),
 			'Konto noch nicht freigeschaltet' => array('zuFrueh'),
@@ -277,15 +285,15 @@ class UnterlagenControllerTest extends Testhilfen
 	}
 
 	/**
-	 * Ein Mitglied außerhalb der kinderschutzpflichtigen Gruppen bekommt nur „keinZugang“.
+	 * Gesperrte, abgelaufene, noch nicht aktive und gelöschte Konten bekommen nur „keinZugang“.
 	 *
-	 * Geprüft werden fünf Wege nach draußen: andere Gruppe, deaktiviertes,
-	 * abgelaufenes oder noch nicht freigeschaltetes Konto und ein Token zu
-	 * einem Mitglied, das es nicht mehr gibt. In jedem Fall werden weder ein
-	 * Upload an die Einreichung gereicht noch eine Teilnahme angelegt – auch
-	 * dann nicht, wenn das Formular vollständig und passend abgeschickt wird.
-	 * Das ist die einzige Sperre des Moduls: Fehlte sie, könnte jedes
-	 * Mitglied mit Konto Unterlagen einreichen.
+	 * Geprüft werden vier Wege nach draußen: deaktiviertes, abgelaufenes oder
+	 * noch nicht freigeschaltetes Konto und ein Token zu einem Mitglied, das
+	 * es nicht mehr gibt – auch wenn das Konto in der Freischaltgruppe steht.
+	 * In jedem Fall werden weder ein Upload an die Einreichung gereicht noch
+	 * eine Teilnahme angelegt – auch dann nicht, wenn das Formular
+	 * vollständig und passend abgeschickt wird. Die Vorlage bekommt kein
+	 * Antragsformular und keinen Anfragetoken.
 	 *
 	 * @dataProvider ohneZugang
 	 *
@@ -325,19 +333,20 @@ class UnterlagenControllerTest extends Testhilfen
 	}
 
 	/**
-	 * Sind gar keine Gruppen als kinderschutzpflichtig gewählt, hat niemand Zugang.
+	 * Ohne eingestellte Gruppe sieht ein Mitglied außerhalb der Gruppe nur „nicht eingerichtet“.
 	 *
-	 * Auch dann nicht, wenn das Mitglied in irgendeiner Gruppe ist: Die leere
-	 * Auswahl darf nicht als „alle“ gelesen werden.
+	 * Auch dann nicht, wenn es in irgendeiner Gruppe ist: Die leere Auswahl
+	 * darf nicht als „alle“ gelesen werden, und Anträge nimmt das Bundle
+	 * dann nicht an.
 	 */
-	public function testOhneGewaehlteGruppenHatNiemandZugang(): void
+	public function testOhneGewaehlteGruppeNichtEingerichtet(): void
 	{
 		$GLOBALS['TL_CONFIG']['kinderschutzGruppe'] = '';
 		$vorlage = $this->vorlage();
 
 		$this->ausfuehren($this->controller(array('token' => $this->speicher('frontend', $this->mitglied))), $this->anfrage(), $vorlage);
 
-		$this->assertSame($GLOBALS['TL_LANG']['MSC']['kinderschutz_fe']['keinZugang'], $vorlage->daten['hinweis']);
+		$this->assertSame($GLOBALS['TL_LANG']['MSC']['kinderschutz_fe']['nichtEingerichtet'], $vorlage->daten['hinweis']);
 	}
 
 	/**
@@ -851,6 +860,122 @@ class UnterlagenControllerTest extends Testhilfen
 	}
 
 	/**
+	 * Wer nicht freigeschaltet ist, sieht das Antragsformular statt der Checkliste.
+	 *
+	 * Die Vorlage bekommt genau die Variablen der Antragsansicht – keine
+	 * Unterlagen, keine Veranstaltungslisten der Checkliste. Der
+	 * Vorlagentest rendert die Antragsansicht mit denselben Schlüsseln.
+	 */
+	public function testNichtFreigeschaltetSiehtAntragsformular(): void
+	{
+		$carla = Testdatenbank::mitglied($this->db, 'Carla', 'Cramer', array(2));
+		$cup = Testdatenbank::veranstaltung($this->db, 'Herbstcup', $this->tag(30));
+		$vorlage = $this->vorlage();
+
+		$this->ausfuehren($this->controller(array('token' => $this->speicher('frontend', $carla))), $this->anfrage(), $vorlage);
+
+		$this->assertSame('', $vorlage->daten['hinweis']);
+		$this->assertNull($vorlage->daten['antrag']['offen']);
+		$this->assertNull($vorlage->daten['antrag']['abgelehnt']);
+		$this->assertSame(array($cup), array_map(static fn (array $v): int => (int) $v['id'], $vorlage->daten['antrag']['waehlbare']));
+		$this->assertSame(500, $vorlage->daten['antrag']['maximal']);
+		$this->assertSame('kinderschutz_7', $vorlage->daten['formular']);
+		$this->assertArrayNotHasKey('arten', $vorlage->daten, 'Ohne Freischaltung keine Checkliste.');
+		$this->assertEqualsCanonicalizing(
+			array('texte', 'hinweis', 'formular', 'requestToken', 'meldungen', 'antrag'),
+			array_keys($vorlage->daten),
+			'Die Antragsansicht setzt genau die Variablen, die ihr Teil der Vorlage liest.'
+		);
+		$this->assertContains('bundles/contaokinderschutzdokumente/frontend.css|static', $GLOBALS['TL_CSS']);
+	}
+
+	/**
+	 * Der Antrag gehört dem Mitglied aus dem Token; danach Umleitung mit Meldung.
+	 */
+	public function testAntragStellenLeitetUmUndNutztDieIdAusDemToken(): void
+	{
+		$carla = Testdatenbank::mitglied($this->db, 'Carla', 'Cramer', array(2));
+		$cup = Testdatenbank::veranstaltung($this->db, 'Herbstcup', $this->tag(30));
+		$session = new Session(new MockArraySessionStorage());
+		$anfrage = $this->anfrage('POST', array(
+			'FORM_SUBMIT'     => 'kinderschutz_7_antrag',
+			'wofuer'          => 'Betreuung bei der JWM',
+			'veranstaltungen' => array((string) $cup),
+			'member'          => (string) $this->fremder,
+		), array(), $session);
+
+		$this->erwarteUmleitung($this->controller(array('token' => $this->speicher('frontend', $carla))), $anfrage, $this->vorlage());
+
+		$antrag = (new AntragRepository($this->db))->offenerFuer($carla);
+		$this->assertNotNull($antrag);
+		$this->assertSame('Betreuung bei der JWM', $antrag['wofuer']);
+		$this->assertSame(array($cup), AntragRepository::veranstaltungenAus($antrag['veranstaltungen']));
+		$this->assertNull((new AntragRepository($this->db))->offenerFuer($this->fremder));
+		$this->assertSame(array($GLOBALS['TL_LANG']['MSC']['kinderschutz_fe']['antragGestellt']), $session->getFlashBag()->peek('kinderschutz_meldung'));
+	}
+
+	/**
+	 * Ein fehlerhafter Antrag zeigt die Meldung und behält den Text.
+	 */
+	public function testAntragOhneBegruendungZeigtFehler(): void
+	{
+		$carla = Testdatenbank::mitglied($this->db, 'Carla', 'Cramer', array(2));
+		$vorlage = $this->vorlage();
+
+		$this->ausfuehren(
+			$this->controller(array('token' => $this->speicher('frontend', $carla))),
+			$this->anfrage('POST', array('FORM_SUBMIT' => 'kinderschutz_7_antrag', 'wofuer' => str_repeat('x', 501))),
+			$vorlage
+		);
+
+		$this->assertSame($GLOBALS['TL_LANG']['MSC']['kinderschutz_fe']['fehler']['antrag_wofuer'], $vorlage->daten['antrag']['fehler']);
+		$this->assertSame(str_repeat('x', 501), $vorlage->daten['antrag']['wofuer']);
+		$this->assertNull((new AntragRepository($this->db))->offenerFuer($carla));
+	}
+
+	/**
+	 * Offener Antrag: Stand statt Formular; abgelehnter Antrag: Begründung.
+	 */
+	public function testOffenerUndAbgelehnterAntrag(): void
+	{
+		$carla = Testdatenbank::mitglied($this->db, 'Carla', 'Cramer', array(2));
+		$antraege = new AntragRepository($this->db);
+		$alt = $antraege->anlegen($carla, 'alt', array(), time() - 7200);
+		$antraege->aendern($alt, array('status' => AntragRepository::ABGELEHNT, 'grund' => 'zu ungenau'));
+
+		$vorlage = $this->vorlage();
+		$this->ausfuehren($this->controller(array('token' => $this->speicher('frontend', $carla))), $this->anfrage(), $vorlage);
+		$this->assertSame($alt, (int) $vorlage->daten['antrag']['abgelehnt']['id']);
+		$this->assertNull($vorlage->daten['antrag']['offen']);
+
+		$neu = $antraege->anlegen($carla, 'neu', array(), time() - 60);
+		$vorlage = $this->vorlage();
+		$this->ausfuehren($this->controller(array('token' => $this->speicher('frontend', $carla))), $this->anfrage(), $vorlage);
+		$this->assertSame($neu, (int) $vorlage->daten['antrag']['offen']['id']);
+		$this->assertNull($vorlage->daten['antrag']['abgelehnt']);
+	}
+
+	/**
+	 * Ohne Freischaltung kein Upload und keine Anmeldung, auch nicht mit nachgebauten Formularen.
+	 */
+	public function testNichtFreigeschaltetKannNichtsHochladenOderAnmelden(): void
+	{
+		$carla = Testdatenbank::mitglied($this->db, 'Carla', 'Cramer', array(2));
+		$veranstaltung = Testdatenbank::veranstaltung($this->db, 'Offener Cup', $this->tag(30));
+		$einreichung = $this->strengesMock(Einreichung::class);
+
+		foreach (array(
+			$this->anfrage('POST', array('FORM_SUBMIT' => 'kinderschutz_7_veranstaltung', 'veranstaltung' => (string) $veranstaltung, 'aktion' => 'anmelden')),
+			$this->anfrage('POST', array('FORM_SUBMIT' => 'kinderschutz_7_upload', 'dokumentart' => (string) $this->efz, 'ausstellungsdatum' => '2026-09-01'), array('datei' => $this->pdfUpload())),
+		) as $anfrage) {
+			$this->ausfuehren($this->controller(array('token' => $this->speicher('frontend', $carla), 'einreichung' => $einreichung)), $anfrage, $this->vorlage());
+		}
+
+		$this->assertSame(array(), $this->teilnahmen($veranstaltung));
+		$this->assertNull((new AntragRepository($this->db))->offenerFuer($carla));
+	}
+
+	/**
 	 * Baut den Controller mit echten Diensten über der Testdatenbank.
 	 *
 	 * Ersatz-Objekte lassen sich einzeln austauschen, damit Tests prüfen
@@ -860,7 +985,8 @@ class UnterlagenControllerTest extends Testhilfen
 	 * @param array<string, mixed> $ersatz Optionale Ersatzobjekte unter den Schlüsseln
 	 *                                     status, einreichung, veranstaltungen, personen,
 	 *                                     token (TokenStorage), stapel (RequestStack),
-	 *                                     tokenManager und groesse (Höchstgröße in Bytes)
+	 *                                     tokenManager, freischaltung und groesse
+	 *                                     (Höchstgröße in Bytes)
 	 *
 	 * @return UnterlagenController Der Controller unter Test
 	 */
@@ -888,7 +1014,17 @@ class UnterlagenControllerTest extends Testhilfen
 			new UploadPruefer($ersatz['groesse'] ?? 10 * 1048576),
 			$ersatz['token'] ?? $this->speicher('keiner'),
 			$ersatz['stapel'] ?? new RequestStack(),
-			$ersatz['tokenManager'] ?? $tokenManager
+			$ersatz['tokenManager'] ?? $tokenManager,
+			$ersatz['freischaltung'] ?? new Freischaltung(
+				new AntragRepository($this->db),
+				$personen,
+				$veranstaltungen,
+				$this->einstellungen(),
+				new Benachrichtigung($this->transport(), $this->einstellungen(), $this->verweise(), $this->framework(), new NullLogger()),
+				new Berechtigung(1),
+				new NullLogger(),
+			),
+			new AntragRepository($this->db)
 		);
 	}
 
@@ -1116,15 +1252,14 @@ class UnterlagenControllerTest extends Testhilfen
 	/**
 	 * Legt ein Mitglied an, das keinen Zugang haben darf, und nennt seine ID.
 	 *
-	 * @param string $fall andereGruppe, gesperrt, abgelaufen, zuFrueh oder geloescht
+	 * @param string $fall gesperrt, abgelaufen, zuFrueh oder geloescht
 	 *
 	 * @return int ID des Mitglieds; bei „geloescht“ eine ID, die es nicht gibt
 	 */
 	private function mitgliedFuer(string $fall): int
 	{
 		return match ($fall) {
-			'andereGruppe' => Testdatenbank::mitglied($this->db, 'Gerd', 'Anders', array(2)),
-			'gesperrt'     => Testdatenbank::mitglied($this->db, 'Gerda', 'Gesperrt', array(1), array('disable' => '1')),
+			'gesperrt'    => Testdatenbank::mitglied($this->db, 'Gerda', 'Gesperrt', array(1), array('disable' => '1')),
 			'abgelaufen'   => Testdatenbank::mitglied($this->db, 'Alf', 'Abgelaufen', array(1), array('stop' => (string) (time() - 3600))),
 			'zuFrueh'      => Testdatenbank::mitglied($this->db, 'Fred', 'Früh', array(1), array('start' => (string) (time() + 86400))),
 			default        => 4711,

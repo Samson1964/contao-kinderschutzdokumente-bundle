@@ -1,6 +1,7 @@
 <?php
 
 use Contao\Date;
+use Contao\Input;
 use Contao\StringUtil;
 
 $this->extend('block_unsearchable');
@@ -11,6 +12,42 @@ $this->extend('block_unsearchable');
 
 <?php if ('' !== $this->hinweis): ?>
   <p class="ks-hinweis"><?= $this->hinweis ?></p>
+<?php elseif (isset($this->antrag)): ?>
+  <?php $a = $this->antrag; ?>
+  <?php // Texte des Mitglieds kommen roh aus der Anfrage: maskieren und Insert-Tags entschärfen, die Contao sonst in der Seite ersetzt ?>
+  <?php $sicher = static fn ($text): string => Input::encodeInsertTags(StringUtil::specialchars((string) $text)); ?>
+
+  <?php foreach ($this->meldungen as $meldung): ?>
+    <p class="ks-meldung" role="status"><?= StringUtil::specialchars($meldung) ?></p>
+  <?php endforeach; ?>
+
+  <h2 class="ks-ueberschrift"><?= $t['antragUeberschrift'] ?></h2>
+  <?php if (null !== $a['offen']): ?>
+    <p class="ks-text"><?= sprintf($t['antragOffen'], Date::parse('d.m.Y', (int) $a['offen']['beantragtAm'])) ?></p>
+    <p class="ks-text ks-grund"><?= nl2br($sicher($a['offen']['wofuer'])) ?></p>
+  <?php else: ?>
+    <p class="ks-text"><?= $t['antragErklaerung'] ?></p>
+    <?php if (null !== $a['abgelehnt']): ?>
+      <p class="ks-text ks-grund"><?= sprintf($t['antragAbgelehnt'], Date::parse('d.m.Y', (int) $a['abgelehnt']['beantragtAm']), nl2br($sicher($a['abgelehnt']['grund']))) ?></p>
+    <?php endif; ?>
+    <?php if ('' !== $a['fehler']): ?><p class="ks-fehler" role="alert" id="ks-antrag-fehler"><?= StringUtil::specialchars($a['fehler']) ?></p><?php endif; ?>
+    <form method="post" class="ks-formular">
+      <input type="hidden" name="FORM_SUBMIT" value="<?= $this->formular ?>_antrag">
+      <input type="hidden" name="REQUEST_TOKEN" value="<?= StringUtil::specialchars($this->requestToken) ?>">
+      <label for="ks-wofuer"><?= $t['wofuer'] ?></label>
+      <textarea name="wofuer" id="ks-wofuer" rows="4" maxlength="<?= (int) $a['maximal'] ?>" required<?= '' !== $a['fehler'] ? ' aria-describedby="ks-antrag-fehler"' : '' ?>><?= $sicher($a['wofuer']) ?></textarea>
+      <?php if (!empty($a['waehlbare'])): ?>
+        <fieldset class="ks-antrag-veranstaltungen">
+          <legend><?= $t['antragVeranstaltungen'] ?></legend>
+          <?php foreach ($a['waehlbare'] as $v): ?>
+            <label><input type="checkbox" name="veranstaltungen[]" value="<?= (int) $v['id'] ?>"> <?= StringUtil::specialchars($v['name']) ?> (<?= Date::parse('d.m.Y', (int) $v['startDate']) ?>)</label>
+          <?php endforeach; ?>
+        </fieldset>
+      <?php endif; ?>
+      <button type="submit"><?= $t['antragStellen'] ?></button>
+    </form>
+  <?php endif; ?>
+
 <?php else: ?>
 
   <?php foreach ($this->meldungen as $meldung): ?>

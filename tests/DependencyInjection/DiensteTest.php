@@ -24,7 +24,9 @@ use Schachbulle\ContaoKinderschutzdokumenteBundle\Backend\UebersichtModul;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Controller\DateiController;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Controller\FrontendModule\UnterlagenController;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Cron\TaeglicherCron;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\Datenbank\AntragRepository;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\DependencyInjection\ContaoKinderschutzdokumenteExtension;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Freischaltung;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\EventListener\DataContainer\AntragListener;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\EventListener\DataContainer\EinstellungenListener;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Regeln\Berechtigung;
@@ -73,6 +75,10 @@ class DiensteTest extends TestCase
 		$this->assertFalse($container->has(Nachweis::class));
 
 		$this->assertTrue($container->has(UnterlagenController::class));
+		// Das Frontend-Modul nimmt Anträge an und zeigt den offenen bzw. letzten
+		$argumente = array_map('strval', $container->getDefinition(UnterlagenController::class)->getArguments());
+		$this->assertContains(Freischaltung::class, $argumente);
+		$this->assertContains(AntragRepository::class, $argumente);
 		$this->assertTrue($container->has(TaeglicherCron::class));
 		// Die Maske „Anträge“ braucht acht Dienste, darunter den MeldungListener
 		$this->assertTrue($container->has(AntragListener::class));

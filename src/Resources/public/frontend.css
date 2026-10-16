@@ -79,3 +79,14 @@
 		flex-basis: auto;
 	}
 }
+
+/* Antragsformular: Veranstaltungen untereinander */
+.ks-antrag-veranstaltungen {
+	margin: 0.75em 0;
+	padding: 0.5em 0.75em;
+}
+
+.ks-antrag-veranstaltungen label {
+	display: block;
+	margin: 0.25em 0;
+}

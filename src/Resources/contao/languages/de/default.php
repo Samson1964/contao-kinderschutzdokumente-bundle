@@ -93,7 +93,18 @@ $GLOBALS['TL_LANG']['MSC']['kinderschutz_status_frontend'] = array
 $GLOBALS['TL_LANG']['MSC']['kinderschutz_fe'] = array
 (
 	'nichtAngemeldet' => 'Bitte melden Sie sich an, um Ihre Unterlagen einzureichen.',
+	// Nur noch für gesperrte, abgelaufene, noch nicht aktive oder gelöschte
+	// Konten; aktive Mitglieder ohne Freischaltung sehen das Antragsformular
 	'keinZugang'      => 'Für Ihr Konto sind keine Kinderschutz-Unterlagen vorgesehen.',
+	'nichtEingerichtet'     => 'Die Kinderschutz-Unterlagen sind noch nicht eingerichtet.',
+	'antragUeberschrift'    => 'Freischaltung für die Kinderschutz-Unterlagen',
+	'antragErklaerung'      => 'Ihr Konto ist noch nicht für die Kinderschutz-Unterlagen freigeschaltet. Wenn Sie im Training, in der Betreuung oder im Ehrenamt Unterlagen einreichen müssen, beantragen Sie hier die Freischaltung.',
+	'wofuer'                => 'Wofür brauchen Sie die Freischaltung? (etwa „Training U12 im Verein X“ oder „Betreuung bei der JWM“)',
+	'antragVeranstaltungen' => 'Für diese Veranstaltungen (freiwillig)',
+	'antragStellen'         => 'Antrag stellen',
+	'antragGestellt'        => 'Vielen Dank, Ihr Antrag ist eingegangen. Sie bekommen eine Mail, sobald er entschieden ist.',
+	'antragOffen'           => 'Ihr Antrag vom %s wird geprüft.',
+	'antragAbgelehnt'       => 'Ihr Antrag vom %s wurde nicht angenommen. Begründung: %s',
 	'unterlagen'      => 'Meine Unterlagen',
 	'pflicht'         => 'Pflicht',
 	'gueltigBis'      => 'gültig bis %s',
@@ -124,6 +135,9 @@ $GLOBALS['TL_LANG']['MSC']['kinderschutz_fe'] = array
 		'datum'   => 'Bitte geben Sie das Ausstellungsdatum an; es darf nicht in der Zukunft liegen.',
 		'art'     => 'Diese Unterlage wird nicht mehr angenommen.',
 		'anmeldung' => 'Für diese Veranstaltung ist keine Anmeldung möglich.',
+		'antrag_wofuer' => 'Bitte geben Sie an, wofür Sie die Freischaltung brauchen (höchstens 500 Zeichen).',
+		'antrag_offen'  => 'Sie haben bereits einen offenen Antrag.',
+		'antrag_gruppe' => 'Die Kinderschutz-Unterlagen sind noch nicht eingerichtet.',
 	),
 );
 

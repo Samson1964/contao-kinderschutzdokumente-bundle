@@ -18,10 +18,12 @@ use Contao\CoreBundle\Exception\RedirectResponseException;
 use Contao\FrontendUser;
 use Contao\ModuleModel;
 use Contao\Template;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\Datenbank\AntragRepository;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Datenbank\PersonenRepository;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Datenbank\VeranstaltungRepository;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Einreichung;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Einstellungen;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Freischaltung;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Statusdienst;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Regeln\Kalender;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Regeln\UploadPruefer;
@@ -39,6 +41,9 @@ use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInt
  * Absenden leitet es auf dieselbe Seite um (Post/Redirect/Get), die Meldung
  * kommt über die Sitzung. Umgeleitet wird mit RedirectResponseException, weil
  * eine RedirectResponse aus einem Fragment nicht bis zum Browser durchdringt.
+ *
+ * Mitglieder außerhalb der Gruppe der freigeschalteten Mitglieder sehen
+ * stattdessen das Antragsformular (Dienst\Freischaltung).
  *
  * Den Anfragetoken prüft Contao für alle POST-Anfragen im Frontend selbst.
  */
@@ -58,6 +63,8 @@ class UnterlagenController extends AbstractFrontendModuleController
 	 * @param TokenStorageInterface   $tokenStorage    Liefert das angemeldete Mitglied
 	 * @param RequestStack            $requestStack    Liefert die Seitenadresse
 	 * @param ContaoCsrfTokenManager  $tokenManager    Anfragetoken für die Formulare
+	 * @param Freischaltung           $freischaltung   Nimmt Anträge an
+	 * @param AntragRepository        $antraege        Offener und letzter Antrag
 	 */
 	public function __construct(
 		private readonly Statusdienst $status,
@@ -69,6 +76,8 @@ class UnterlagenController extends AbstractFrontendModuleController
 		private readonly TokenStorageInterface $tokenStorage,
 		private readonly RequestStack $requestStack,
 		private readonly ContaoCsrfTokenManager $tokenManager,
+		private readonly Freischaltung $freischaltung,
+		private readonly AntragRepository $antraege,
 	) {
 	}
 
@@ -103,10 +112,10 @@ class UnterlagenController extends AbstractFrontendModuleController
 
 		$mitglied = (int) $benutzer->id;
 
+		// Nicht freigeschaltet: nur die Antragsansicht. Uploads und
+		// Anmeldungen werden dann gar nicht erst ausgewertet.
 		if (!$this->personen->istInGruppen($mitglied, $this->einstellungen->gruppen(), $jetzt)) {
-			$template->hinweis = $texte['keinZugang'];
-
-			return $template->getResponse();
+			return $this->antragsansicht($template, $model, $request, $mitglied, $jetzt);
 		}
 
 		$GLOBALS['TL_CSS'][] = 'bundles/contaokinderschutzdokumente/frontend.css|static';
@@ -138,6 +147,87 @@ class UnterlagenController extends AbstractFrontendModuleController
 			$this->veranstaltungen->waehlbare($heute),
 			static fn (array $veranstaltung): bool => !in_array((int) $veranstaltung['id'], $eigeneIds, true)
 		));
+		// Ausdrücklich gesetzt, damit die Vorlage die Checkliste wählt und
+		// jede Variable, die sie liest, auch vom Controller kommt
+		$template->antrag = null;
+
+		return $template->getResponse();
+	}
+
+	/**
+	 * Zeigt die Antragsansicht und nimmt einen Antrag entgegen.
+	 *
+	 * Gesperrte, abgelaufene oder gelöschte Konten bekommen nur den Hinweis
+	 * „keinZugang“, ohne Gruppe „nichtEingerichtet“. Sonst zeigt die Vorlage
+	 * den offenen Antrag, oder das Formular – nach einer Ablehnung mit deren
+	 * Begründung. Die Mitglieds-ID stammt immer aus dem Token.
+	 *
+	 * Upload- und Anmeldeformulare werden hier bewusst nicht ausgewertet:
+	 * Wer nicht freigeschaltet ist, darf nichts einreichen, auch nicht mit
+	 * einem nachgebauten Formular.
+	 *
+	 * Seiteneffekte: über Freischaltung::beantragen() ein neuer Antrag und
+	 * eine Mail an die Prüfer; bei Erfolg Meldung in der Sitzung und Umleitung.
+	 *
+	 * @param Template    $template Das Modul-Template
+	 * @param ModuleModel $model    Die Moduleinstellungen
+	 * @param Request     $request  Die Anfrage
+	 * @param int         $mitglied ID des angemeldeten Mitglieds
+	 * @param int         $jetzt    Aktueller Zeitpunkt
+	 *
+	 * @return Response Die gerenderte Ausgabe
+	 *
+	 * @throws RedirectResponseException Nach einem erfolgreichen Antrag
+	 */
+	private function antragsansicht(Template $template, ModuleModel $model, Request $request, int $mitglied, int $jetzt): Response
+	{
+		$texte = $GLOBALS['TL_LANG']['MSC']['kinderschutz_fe'];
+
+		if (!$this->personen->istAktivesMitglied($mitglied, $jetzt)) {
+			$template->hinweis = $texte['keinZugang'];
+
+			return $template->getResponse();
+		}
+
+		if ($this->einstellungen->gruppe() <= 0) {
+			$template->hinweis = $texte['nichtEingerichtet'];
+
+			return $template->getResponse();
+		}
+
+		$formular = 'kinderschutz_'.$model->id;
+		$fehler = '';
+		$wofuer = '';
+
+		if ($request->isMethod('POST') && $formular.'_antrag' === $request->request->get('FORM_SUBMIT')) {
+			$wofuer = (string) $request->request->get('wofuer', '');
+			// all() mit Schlüssel gibt es seit Symfony 5.0 (4.13 hat 5.4); ein
+			// fehlender Schlüssel ergibt ein leeres Array
+			$schluessel = $this->freischaltung->beantragen($mitglied, $wofuer, array_map('intval', $request->request->all('veranstaltungen')), $jetzt);
+
+			if (null === $schluessel) {
+				$this->weiter($request, $texte['antragGestellt']);
+			}
+
+			$fehler = $texte['fehler']['antrag_'.$schluessel] ?? $texte['fehler']['antrag_wofuer'];
+		}
+
+		$offen = $this->antraege->offenerFuer($mitglied);
+		$letzter = null === $offen ? $this->antraege->letzterFuer($mitglied) : null;
+
+		$GLOBALS['TL_CSS'][] = 'bundles/contaokinderschutzdokumente/frontend.css|static';
+		$template->formular = $formular;
+		$template->requestToken = $this->tokenManager->getDefaultTokenValue();
+		$template->meldungen = $this->meldungen($request);
+		$template->antrag = array(
+			'offen'     => $offen,
+			'abgelehnt' => null !== $letzter && AntragRepository::ABGELEHNT === (string) $letzter['status'] ? $letzter : null,
+			'waehlbare' => $this->veranstaltungen->waehlbare(Kalender::tag($jetzt)),
+			'fehler'    => $fehler,
+			// Nach einem Fehler bekommt das Mitglied seinen Text zurück
+			'wofuer'    => '' !== $fehler ? $wofuer : '',
+			'maximal'   => Freischaltung::WOFUER_MAX,
+		);
 
 		return $template->getResponse();
 	}

@@ -415,6 +415,151 @@ class UnterlagenVorlageTest extends TestCase
 	}
 
 	/**
+	 * Nicht freigeschaltet: Antragsformular statt Checkliste.
+	 *
+	 * Gerendert wird mit genau den Variablen, die der Controller in der
+	 * Antragsansicht setzt (die Bühne wirft bei jeder anderen). Es gibt ein
+	 * einziges Formular mit POST, Anfragetoken und der Kennung
+	 * „…_antrag“, ein Pflicht-Textfeld „wofuer“ mit Höchstlänge und je
+	 * wählbarer Veranstaltung ein Kästchen „veranstaltungen[]“. Weder
+	 * Unterlagen noch Upload- oder Anmeldeformulare erscheinen.
+	 * Beschriftungen zeigen auf vorhandene Felder.
+	 */
+	public function testAntragsansichtZeigtFormularStattCheckliste(): void
+	{
+		$daten = $this->antragsbasis();
+		$daten['antrag']['waehlbare'] = array(
+			array('id' => 9, 'name' => 'Herbstcup', 'startDate' => $this->tage(40)),
+			array('id' => 11, 'name' => 'JWM Kreta', 'startDate' => $this->tage(60)),
+		);
+
+		$html = $this->rendere($daten);
+
+		$formulare = $this->abfrage($html, '//form');
+		$this->assertSame(1, $formulare->length, 'Nur das Antragsformular.');
+		$formular = $formulare->item(0);
+		$this->assertSame('post', $formular->getAttribute('method'));
+		$this->assertSame('kinderschutz_7_antrag', $this->wert($formular, './/input[@name="FORM_SUBMIT"]'));
+		$this->assertSame(self::ANFRAGETOKEN, $this->wert($formular, './/input[@type="hidden"][@name="REQUEST_TOKEN"]'));
+		$this->assertSame('500', $this->wert($formular, './/textarea[@name="wofuer"][@required]', 'maxlength'));
+		$this->assertSame(array('9', '11'), array_map(
+			static fn (\DOMElement $feld): string => $feld->getAttribute('value'),
+			iterator_to_array($this->abfrage($html, '//input[@type="checkbox"][@name="veranstaltungen[]"]'))
+		));
+		$this->assertStringContainsString($GLOBALS['TL_LANG']['MSC']['kinderschutz_fe']['antragUeberschrift'], $html);
+		$this->assertStringNotContainsString('ks-art', $html);
+		$this->assertCount(0, $this->abfrage($html, '//input[@type="file"]'));
+		$this->assertStringNotContainsString('_upload', $html);
+		$this->assertStringNotContainsString('_veranstaltung"', $html);
+
+		$ids = array();
+
+		foreach ($this->abfrage($html, '//@id') as $attribut) {
+			$ids[] = $attribut->value;
+		}
+
+		foreach ($this->abfrage($html, '//label/@for') as $verweis) {
+			$this->assertContains($verweis->value, $ids, 'Jede Beschriftung gehört zu einem vorhandenen Feld.');
+		}
+
+		// Ohne wählbare Veranstaltungen fällt der Kasten ganz weg
+		$daten['antrag']['waehlbare'] = array();
+		$this->assertCount(0, $this->abfrage($this->rendere($daten), '//fieldset'));
+	}
+
+	/**
+	 * Offener Antrag: Stand und Begründung statt Formular; Ablehnung: Grund über dem Formular.
+	 */
+	public function testOffenerUndAbgelehnterAntragImMarkup(): void
+	{
+		$daten = $this->antragsbasis();
+		$daten['antrag']['offen'] = array('id' => 3, 'beantragtAm' => $this->tage(-2), 'wofuer' => "Training U12\nim Verein X");
+
+		$html = $this->rendere($daten);
+
+		$this->assertCount(0, $this->abfrage($html, '//form'), 'Bei offenem Antrag kein zweites Formular.');
+		$this->assertStringContainsString(sprintf($GLOBALS['TL_LANG']['MSC']['kinderschutz_fe']['antragOffen'], '13.10.2026'), $html);
+		$this->assertStringContainsString('Training U12<br />', $html);
+
+		$daten = $this->antragsbasis();
+		$daten['antrag']['abgelehnt'] = array('id' => 2, 'beantragtAm' => $this->tage(-10), 'grund' => 'Bitte genauer angeben.');
+
+		$html = $this->rendere($daten);
+
+		$this->assertCount(1, $this->abfrage($html, '//form'));
+		$this->assertStringContainsString(sprintf($GLOBALS['TL_LANG']['MSC']['kinderschutz_fe']['antragAbgelehnt'], '05.10.2026', 'Bitte genauer angeben.'), $html);
+	}
+
+	/**
+	 * Benutzertexte des Antrags erscheinen maskiert und lösen keine Insert-Tags aus.
+	 *
+	 * Contao ersetzt Insert-Tags in der Ausgabe der Seite. Der Antragstext
+	 * kommt roh aus der Anfrage; ein Mitglied könnte sonst mit „{{env::host}}“
+	 * oder Schlimmerem in seiner eigenen Ansicht Insert-Tags auslösen.
+	 * Geprüft werden der offene Antrag, der nach einem Fehler zurückgegebene
+	 * Feldinhalt und der Grund einer Ablehnung: kein „{{“ und kein „}}“ im
+	 * Markup, kein eingeschleustes Element, der Wortlaut bleibt sichtbar.
+	 */
+	public function testAntragstexteLoesenKeineInsertTagsAus(): void
+	{
+		$boese = '{{env::host}} <b>fett</b> {{link_url::1}}';
+
+		$offen = $this->antragsbasis();
+		$offen['antrag']['offen'] = array('id' => 3, 'beantragtAm' => $this->tage(-2), 'wofuer' => $boese);
+
+		$fehler = $this->antragsbasis();
+		// Die Fehlermeldung stammt aus der Sprachdatei, nicht vom Mitglied; geprüft wird nur das Maskieren
+		$fehler['antrag']['fehler'] = 'Fehler <i>kursiv</i>';
+		$fehler['antrag']['wofuer'] = $boese;
+		$fehler['antrag']['abgelehnt'] = array('id' => 2, 'beantragtAm' => $this->tage(-10), 'grund' => 'Grund {{env::path}} <u>x</u>');
+
+		foreach (array('offen' => $offen, 'Fehler und Ablehnung' => $fehler) as $fall => $daten) {
+			$html = $this->rendere($daten);
+
+			$this->assertStringNotContainsString('{{', $html, $fall);
+			$this->assertStringNotContainsString('}}', $html, $fall);
+
+			foreach (array('b', 'i', 'u') as $element) {
+				$this->assertCount(0, $this->abfrage($html, '//'.$element), $fall.': kein Element <'.$element.'>');
+			}
+
+			$this->assertStringContainsString($boese, $this->dokument($html)->textContent, $fall.': Der Text bleibt wörtlich sichtbar.');
+		}
+
+		$html = $this->rendere($fehler);
+		$this->assertSame($boese, $this->abfrage($html, '//textarea[@name="wofuer"]')->item(0)->textContent);
+		$this->assertStringContainsString('Grund {{env::path}} <u>x</u>', $this->dokument($html)->textContent);
+		$this->assertSame('ks-antrag-fehler', $this->wert($this->abfrage($html, '//form')->item(0), './/textarea', 'aria-describedby'));
+	}
+
+	/**
+	 * Baut die Variablen der Antragsansicht, so wie der Controller sie setzt.
+	 *
+	 * Kein offener und kein abgelehnter Antrag, keine wählbare
+	 * Veranstaltung, kein Fehler. Einzelne Tests ersetzen, was sie brauchen.
+	 *
+	 * @return array<string, mixed> Variablen des Templates
+	 */
+	private function antragsbasis(): array
+	{
+		return array(
+			'texte'        => $GLOBALS['TL_LANG']['MSC']['kinderschutz_fe'],
+			'hinweis'      => '',
+			'formular'     => 'kinderschutz_7',
+			'requestToken' => self::ANFRAGETOKEN,
+			'meldungen'    => array(),
+			'antrag'       => array(
+				'offen'     => null,
+				'abgelehnt' => null,
+				'waehlbare' => array(),
+				'fehler'    => '',
+				'wofuer'    => '',
+				'maximal'   => 500,
+			),
+		);
+	}
+
+	/**
 	 * Baut gutartige Beispieldaten, so wie der Controller sie setzt.
 	 *
 	 * Zwei Pflicht-Dokumentarten ohne Nachweise, eine eigene und keine
@@ -443,6 +588,8 @@ class UnterlagenVorlageTest extends TestCase
 			'fehler'         => array(),
 			'eigene'         => array(),
 			'waehlbare'      => array(),
+			// Der Controller setzt „antrag“ in der Checkliste ausdrücklich auf null
+			'antrag'         => null,
 		);
 	}
 
