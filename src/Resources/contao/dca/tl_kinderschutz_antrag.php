@@ -54,6 +54,11 @@ $GLOBALS['TL_DCA']['tl_kinderschutz_antrag'] = array
 			'fields'      => array('status', 'beantragtAm DESC'),
 			'flag'        => DataContainer::SORT_DESC,
 			'panelLayout' => 'filter;search,limit',
+			// Nicht gespeicherte Entwürfe aus „Mitglied freischalten“
+			// (tstamp 0) ausblenden: Contao 5.7 löscht sie nur beim
+			// Verlassen über „Zurück“, sonst stünden sie als „Mitglied
+			// gelöscht (#0)“ in der Liste. 4.13 räumt sie selbst ab.
+			'filter'      => array(array('tstamp>?', 0)),
 		),
 		'label' => array
 		(

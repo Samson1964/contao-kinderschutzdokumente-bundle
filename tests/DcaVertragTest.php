@@ -112,6 +112,23 @@ class DcaVertragTest extends TestCase
 	}
 
 	/**
+	 * Die Antragsliste blendet nicht gespeicherte Entwürfe aus.
+	 *
+	 * „Mitglied freischalten“ legt über DC_Table einen Datensatz mit
+	 * tstamp 0 an. Contao 5.7 löscht ihn nur, wenn die Maske über „Zurück“
+	 * verlassen wird (Parameter „revise“); wer über das Menü weggeht, lässt
+	 * ihn stehen. Im Prüfstand 5.7 erschien er dann in der Liste unter „-“
+	 * als „Mitglied gelöscht (#0) (–)“. Contao 4.13 räumt solche Datensätze
+	 * beim nächsten Listenaufruf selbst ab; der Filter schadet dort nicht.
+	 */
+	public function testAntragslisteBlendetEntwuerfeAus(): void
+	{
+		$sortierung = $this->ladeDca('tl_kinderschutz_antrag')['list']['sorting'];
+
+		$this->assertContains(array('tstamp>?', 0), $sortierung['filter'] ?? array());
+	}
+
+	/**
 	 * Die eigenen Tabellen haben leere Contao-Berechtigungen.
 	 *
 	 * Die Kinderschutz-Module schalten Contaos Modul- und Tabellenrechte ab
