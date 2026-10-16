@@ -161,16 +161,27 @@ class Freischaltung
 	/**
 	 * Prüft eine Entscheidung in der Maske, bevor Contao sie speichert.
 	 *
+	 * Beim Freischalten muss das Mitglied wie bei pruefeDirekt() aktiv sein
+	 * (vorhanden, nicht gesperrt, im Aktivierungszeitraum): Ein gesperrtes
+	 * Mitglied käme sonst in die Gruppe, könnte sich aber nicht anmelden und
+	 * bekäme trotzdem die Mail mit dem Link. Ablehnen geht auch bei einem
+	 * gesperrten Mitglied.
+	 *
 	 * @param array<string, mixed>|null $gespeichert Der Antrag vor dem Speichern
 	 * @param string                    $neu         Gewählte Entscheidung
 	 * @param string                    $grund       Eingegebene Begründung
+	 * @param int|null                  $jetzt       Aktueller Zeitpunkt für die Prüfung des
+	 *                                               Aktivierungszeitraums; null nimmt die
+	 *                                               aktuelle Zeit (so rufen die Masken auf,
+	 *                                               Tests geben einen festen Wert mit)
 	 *
 	 * @return string|null Schlüssel unter $GLOBALS['TL_LANG']['MSC']['kinderschutz_be']:
 	 *                     „antragEntschieden“ (Entscheidung wird nachträglich
 	 *                     geändert), „antragGrundFehlt“, „keineGruppe“,
-	 *                     „mitgliedFehlt“; null, wenn alles passt
+	 *                     „mitgliedFehlt“ (gelöscht, gesperrt oder abgelaufen);
+	 *                     null, wenn alles passt
 	 */
-	public function pruefeEntscheidung(?array $gespeichert, string $neu, string $grund): ?string
+	public function pruefeEntscheidung(?array $gespeichert, string $neu, string $grund, ?int $jetzt = null): ?string
 	{
 		if (null === $gespeichert) {
 			return null;
@@ -189,7 +200,7 @@ class Freischaltung
 				return 'keineGruppe';
 			}
 
-			if (null === $this->personen->mitglied((int) $gespeichert['member'])) {
+			if (!$this->personen->istAktivesMitglied((int) $gespeichert['member'], $jetzt ?? time())) {
 				return 'mitgliedFehlt';
 			}
 		}

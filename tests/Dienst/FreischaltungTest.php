@@ -325,6 +325,28 @@ class FreischaltungTest extends Testhilfen
 	}
 
 	/**
+	 * Freischalten verlangt wie „Mitglied freischalten“ ein aktives Mitglied; Ablehnen nicht.
+	 *
+	 * Ein gesperrtes oder abgelaufenes Mitglied käme sonst in die Gruppe,
+	 * könnte sich aber nicht anmelden. Der Zeitpunkt ist ein optionaler
+	 * vierter Parameter; ohne ihn gilt die aktuelle Zeit.
+	 */
+	public function testPruefeEntscheidungVerlangtEinAktivesMitglied(): void
+	{
+		$dienst = $this->dienst();
+		$gesperrt = Testdatenbank::mitglied($this->db, 'Gerda', 'Gesperrt', array(2), array('disable' => '1'));
+		$abgelaufen = Testdatenbank::mitglied($this->db, 'Alf', 'Abgelaufen', array(2), array('stop' => (string) ($this->jetzt - 60)));
+		$antrag = static fn (int $mitglied): array => array('member' => $mitglied, 'status' => 'offen', 'entschiedenAm' => 0);
+
+		$this->assertSame('mitgliedFehlt', $dienst->pruefeEntscheidung($antrag($gesperrt), 'freigeschaltet', '', $this->jetzt));
+		$this->assertSame('mitgliedFehlt', $dienst->pruefeEntscheidung($antrag($abgelaufen), 'freigeschaltet', '', $this->jetzt));
+		$this->assertNull($dienst->pruefeEntscheidung($antrag($abgelaufen), 'freigeschaltet', '', $this->jetzt - 3600), 'Eine Stunde früher war das Mitglied noch aktiv.');
+		$this->assertNull($dienst->pruefeEntscheidung($antrag($gesperrt), 'abgelehnt', 'Grund', $this->jetzt), 'Ablehnen geht auch bei gesperrten Mitgliedern.');
+		$this->assertSame('mitgliedFehlt', $dienst->pruefeEntscheidung($antrag($gesperrt), 'freigeschaltet', ''), 'Ohne Zeitpunkt gilt die aktuelle Zeit.');
+		$this->assertNull($dienst->pruefeEntscheidung($antrag($this->carla), 'freigeschaltet', ''));
+	}
+
+	/**
 	 * Eingabeprüfung für „Mitglied freischalten“.
 	 */
 	public function testPruefeDirekt(): void
