@@ -107,6 +107,22 @@ foreach (array('ks-anna' => array('Anna', 'Adler'), 'ks-bernd' => array('Bernd',
 	$zugang[] = "Mitglied $name / $passwort";
 }
 
+// Ein Mitglied außerhalb der Freischaltgruppe, für Antrag und direktes
+// Freischalten; jeder Lauf setzt es wieder auf „nicht freigeschaltet“
+$passwort = bin2hex(random_bytes(8));
+ablegen($db, 'tl_member', 'username', 'ks-carla', array(
+	'tstamp'    => $jetzt,
+	'dateAdded' => $jetzt,
+	'firstname' => 'Carla',
+	'lastname'  => 'Cramer',
+	'email'     => 'ks-carla@example.org',
+	'password'  => password_hash($passwort, PASSWORD_DEFAULT),
+	'login'     => $ja,
+	'disable'   => $nein,
+	'groups'    => serialize(array()),
+));
+$zugang[] = "Mitglied ks-carla / $passwort";
+
 // Backend-Benutzer
 foreach (array('ks-pruefer' => array('Prüferin Test', $nein, '1'), 'ks-admin' => array('Admin ohne Freigabe', $ja, '')) as $name => list($anzeige, $admin, $pruefer)) {
 	$passwort = bin2hex(random_bytes(8));
