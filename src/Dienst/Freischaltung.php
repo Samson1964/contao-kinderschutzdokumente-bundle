@@ -246,6 +246,12 @@ class Freischaltung
 	 *
 	 * Fehlen Mitglied oder Gruppe trotz Eingabeprüfung (etwa gleichzeitig
 	 * gelöscht), geht der Antrag zurück auf „offen“, statt halb zu gelten.
+	 * Dieser Rückfallweg ist praktisch nicht erreichbar: pruefeEntscheidung()
+	 * und pruefeDirekt() haben Mitglied und Gruppe unmittelbar vor dem
+	 * Speichern geprüft, und er greift nur, wenn eines von beiden in den
+	 * Sekundenbruchteilen dazwischen verschwindet. Er ist ein Sicherheitsnetz,
+	 * damit ein Antrag nie als freigeschaltet gilt, ohne dass das Mitglied in
+	 * der Gruppe ist.
 	 *
 	 * @param array<string, mixed> $zeile   Der Antrag
 	 * @param int                  $pruefer ID des Prüfers

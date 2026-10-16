@@ -342,6 +342,107 @@ class FreischaltungTest extends Testhilfen
 	}
 
 	/**
+	 * Scheitert die Mail beim Ablehnen, bleibt die Ablehnung und der Aufrufer erfährt es.
+	 */
+	public function testGescheiterteMailBeimAblehnenMeldetFalseUndBehaeltDieEntscheidung(): void
+	{
+		$transport = $this->createMock(TransportInterface::class);
+		$transport->method('send')->willThrowException(new TransportException('Server weg'));
+		$antrag = $this->offenerAntrag();
+		$this->db->update('tl_kinderschutz_antrag', array('status' => 'abgelehnt', 'grund' => 'Zu ungenau.'), array('id' => $antrag));
+
+		$this->assertFalse($this->dienst($transport)->nachSpeichern($antrag, 7, $this->jetzt));
+
+		$zeile = (new AntragRepository($this->db))->zeile($antrag);
+		$this->assertSame('abgelehnt', $zeile['status']);
+		$this->assertSame($this->jetzt, (int) $zeile['entschiedenAm']);
+		$this->assertSame(7, (int) $zeile['entschiedenVon']);
+	}
+
+	/**
+	 * Scheitert die Mail an die Prüfer, gilt der Antrag trotzdem, und die Annahme meldet keinen Fehler.
+	 */
+	public function testGescheiterteMailAnDiePrueferLaesstDenAntragStehen(): void
+	{
+		$transport = $this->createMock(TransportInterface::class);
+		$transport->method('send')->willThrowException(new TransportException('Server weg'));
+
+		$this->assertNull($this->dienst($transport)->beantragen($this->carla, 'Training', array($this->cup), $this->jetzt));
+
+		$antrag = (new AntragRepository($this->db))->offenerFuer($this->carla);
+		$this->assertNotNull($antrag);
+		$this->assertSame('Training', $antrag['wofuer']);
+		$this->assertSame(array($this->cup), AntragRepository::veranstaltungenAus($antrag['veranstaltungen']));
+	}
+
+	/**
+	 * Nach einer Ablehnung kann das Mitglied einen neuen Antrag stellen.
+	 */
+	public function testNachAblehnungIstEinNeuerAntragMoeglich(): void
+	{
+		$abgelehnt = $this->offenerAntrag();
+		$this->db->update('tl_kinderschutz_antrag', array('status' => 'abgelehnt', 'grund' => 'Zu ungenau.'), array('id' => $abgelehnt));
+		$this->dienst()->nachSpeichern($abgelehnt, 7, $this->jetzt);
+
+		$this->assertNull($this->dienst()->beantragen($this->carla, 'Genauer: Betreuung JWM', array(), $this->jetzt + 3600));
+
+		$offen = (new AntragRepository($this->db))->offenerFuer($this->carla);
+		$this->assertNotNull($offen);
+		$this->assertNotSame($abgelehnt, (int) $offen['id']);
+		$this->assertSame('Genauer: Betreuung JWM', $offen['wofuer']);
+		$this->assertSame('abgelehnt', (new AntragRepository($this->db))->zeile($abgelehnt)['status'], 'Der abgelehnte Antrag bleibt, wie er war.');
+	}
+
+	/**
+	 * Eine Veranstaltung, die beim Freischalten nicht mehr wählbar ist, fällt still weg.
+	 *
+	 * Die Freischaltung selbst gilt trotzdem: Gruppe, Merker und Mail.
+	 */
+	public function testNichtMehrWaehlbareVeranstaltungEntfaelltStill(): void
+	{
+		$antrag = $this->offenerAntrag(array($this->cup));
+		$this->db->update('tl_kinderschutz_antrag', array('status' => 'freigeschaltet'), array('id' => $antrag));
+		$this->db->update('tl_kinderschutz_veranstaltung', array('waehlbar' => ''), array('id' => $this->cup));
+
+		$this->assertTrue($this->dienst()->nachSpeichern($antrag, 7, $this->jetzt));
+
+		$this->assertSame(array(), (new VeranstaltungRepository($this->db))->teilnehmer($this->cup));
+		$this->assertTrue((new PersonenRepository($this->db))->istInGruppen($this->carla, array(1), $this->jetzt));
+		$this->assertSame($this->jetzt, (int) (new AntragRepository($this->db))->zeile($antrag)['entschiedenAm']);
+		$this->assertCount(1, $this->mails);
+	}
+
+	/**
+	 * Rückfallweg: Fehlen Mitglied oder Gruppe trotz Eingabeprüfung, bleibt der Antrag offen.
+	 *
+	 * Praktisch nicht erreichbar, weil die Maske beides unmittelbar vor dem
+	 * Speichern prüft; der Test hält das Sicherheitsnetz fest.
+	 */
+	public function testFreischaltenOhneMitgliedOderGruppeBleibtOffen(): void
+	{
+		$antraege = new AntragRepository($this->db);
+		$geloescht = $this->offenerAntrag();
+		$this->db->update('tl_kinderschutz_antrag', array('status' => 'freigeschaltet'), array('id' => $geloescht));
+		$this->db->delete('tl_member', array('id' => $this->carla));
+
+		$this->assertTrue($this->dienst()->nachSpeichern($geloescht, 7, $this->jetzt));
+
+		$this->assertSame('offen', $antraege->zeile($geloescht)['status']);
+		$this->assertSame(0, (int) $antraege->zeile($geloescht)['entschiedenAm']);
+
+		$anna = Testdatenbank::mitglied($this->db, 'Anna', 'Adler', array(2));
+		$ohneGruppe = $antraege->anlegen($anna, 'Training', array(), $this->jetzt - 3600);
+		$this->db->update('tl_kinderschutz_antrag', array('status' => 'freigeschaltet'), array('id' => $ohneGruppe));
+		$GLOBALS['TL_CONFIG']['kinderschutzGruppe'] = '';
+
+		$this->assertTrue($this->dienst()->nachSpeichern($ohneGruppe, 7, $this->jetzt));
+
+		$this->assertSame('offen', $antraege->zeile($ohneGruppe)['status']);
+		$this->assertFalse((new PersonenRepository($this->db))->istInGruppen($anna, array(1), $this->jetzt));
+		$this->assertSame(array(), $this->mails);
+	}
+
+	/**
 	 * Eingabeprüfung der Maske für Entscheidungen.
 	 */
 	public function testPruefeEntscheidung(): void
