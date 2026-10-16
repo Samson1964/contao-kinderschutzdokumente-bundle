@@ -173,7 +173,7 @@ foreach (array(1 => $anmeldung, 2 => $unterlagen) as $reihenfolge => $modul) {
 }
 
 // Einstellungen
-Config::persist('kinderschutzGruppen', serialize(array((string) $gruppe)));
+Config::persist('kinderschutzGruppe', $gruppe);
 Config::persist('kinderschutzSeite', $seite);
 Config::persist('kinderschutzAbsender', 'kinderschutz@example.org');
 

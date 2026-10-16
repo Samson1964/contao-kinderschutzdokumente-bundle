@@ -43,7 +43,7 @@ abstract class Testhilfen extends TestCase
 	{
 		$GLOBALS['TL_CONFIG'] = array(
 			'kinderschutzAbsender' => 'kinderschutz@example.org',
-			'kinderschutzGruppen'  => serialize(array('1')),
+			'kinderschutzGruppe'   => '1',
 		);
 		$GLOBALS['TL_LANG'] = array();
 		$this->mails = array();

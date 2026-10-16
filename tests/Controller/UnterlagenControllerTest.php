@@ -332,7 +332,7 @@ class UnterlagenControllerTest extends Testhilfen
 	 */
 	public function testOhneGewaehlteGruppenHatNiemandZugang(): void
 	{
-		$GLOBALS['TL_CONFIG']['kinderschutzGruppen'] = serialize(array());
+		$GLOBALS['TL_CONFIG']['kinderschutzGruppe'] = '';
 		$vorlage = $this->vorlage();
 
 		$this->ausfuehren($this->controller(array('token' => $this->speicher('frontend', $this->mitglied))), $this->anfrage(), $vorlage);
