@@ -32,6 +32,8 @@ $GLOBALS['TL_DCA']['tl_kinderschutz_antrag'] = array
 	'config' => array
 	(
 		'dataContainer' => DC_Table::class,
+		// Die Sperre mit 403 setzt Sicherheit\Kopiersperre im onload;
+		// notCopyable allein ergäbe in 4.13 HTTP 500
 		'notCopyable'   => true,
 		// Ohne pid und sorting gibt es nichts zu verschieben. Die Sperre
 		// mit 403 setzt Sicherheit\Verschiebesperre im onload; notSortable

@@ -23,6 +23,7 @@ use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Einstellungen;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Freischaltung;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Zugang;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\EventListener\MeldungListener;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\Sicherheit\Kopiersperre;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Sicherheit\Verschiebesperre;
 use Symfony\Component\HttpFoundation\RequestStack;
 
@@ -77,6 +78,8 @@ class AntragListener
 	 *   noch über eine von Hand gebaute Adresse.
 	 * - Verschieben (cut, cutAll, paste mit mode=cut) sperrt
 	 *   Verschiebesperre mit 403; „notSortable“ allein ergäbe in 4.13 HTTP 500.
+	 * - Kopieren (copy, auch einzeln) sperrt Kopiersperre mit 403;
+	 *   „notCopyable“ allein ergäbe in 4.13 HTTP 500.
 	 * - Ein Datensatz ohne Stand kommt aus „Mitglied freischalten“ und
 	 *   bekommt die Palette „direkt“; ein entschiedener nur den Infokasten.
 	 *   Alle anderen Aktionen (Liste, show, delete) lassen die Paletten in Ruhe.
@@ -86,13 +89,14 @@ class AntragListener
 	 * @param DataContainer|null $dc Der Data Container; null kommt in 4.13 bei
 	 *                               manchen Aufrufen aus der Liste vor
 	 *
-	 * @throws AccessDeniedException Ohne Prüferfreigabe, bei einer Sammelaktion oder beim Verschieben
+	 * @throws AccessDeniedException Ohne Prüferfreigabe, bei einer Sammelaktion, beim Verschieben oder Kopieren
 	 */
 	#[AsCallback(table: 'tl_kinderschutz_antrag', target: 'config.onload')]
 	public function beimLaden(?DataContainer $dc = null): void
 	{
 		$this->zugang->verlange();
 		Verschiebesperre::pruefe($this->requestStack->getCurrentRequest());
+		Kopiersperre::pruefe($this->requestStack->getCurrentRequest());
 		// Kleingeschrieben: „act=editall“ oder „act=Edit“ führen über
 		// $dc->$act() dieselbe Methode aus wie die übliche Schreibweise.
 		$act = Verschiebesperre::aktion($this->requestStack->getCurrentRequest());

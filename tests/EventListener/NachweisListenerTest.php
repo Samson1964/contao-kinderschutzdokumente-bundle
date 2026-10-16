@@ -127,6 +127,50 @@ class NachweisListenerTest extends TestCase
 	}
 
 	/**
+	 * Kopieren ist in Nachweisliste und Papierkorb gesperrt.
+	 *
+	 * „notCopyable“ allein ergab im Prüfstand 4.13 HTTP 500 („Table
+	 * "tl_kinderschutz" is not copyable.“), in 5.7 dagegen 403.
+	 *
+	 * @dataProvider kopieraktionen
+	 *
+	 * @param string $do  Wert von „do“
+	 * @param string $act Wert von „act“
+	 */
+	public function testKopierenGesperrt(string $do, string $act): void
+	{
+		$this->expectException(AccessDeniedException::class);
+		$this->listener($do, false, array('act' => $act, 'id' => '4'))->beimLaden();
+	}
+
+	/**
+	 * Die gesperrten Kopieraktionen, auch in anderer Schreibweise.
+	 *
+	 * @return array<string, array{0: string, 1: string}>
+	 */
+	public static function kopieraktionen(): array
+	{
+		return array(
+			'Kopieren'                => array('kinderschutz_nachweise', 'copy'),
+			'Mehrere kopieren'        => array('kinderschutz_nachweise', 'copyAll'),
+			'Papierkorb'              => array('kinderschutz_papierkorb', 'copy'),
+			'Kopieren groß'           => array('kinderschutz_nachweise', 'COPY'),
+			'Mehrere kopieren klein'  => array('kinderschutz_nachweise', 'copyall'),
+		);
+	}
+
+	/**
+	 * Gegenprobe: „paste&mode=copy“ zeigt nur die Liste mit Zwischenablage
+	 * und bleibt erlaubt; gesperrt wird erst der Kopiervorgang selbst.
+	 */
+	public function testEinfuegenNachKopierenBleibtErlaubt(): void
+	{
+		$this->listener('kinderschutz_nachweise', false, array('act' => 'paste', 'mode' => 'copy', 'id' => '4'))->beimLaden();
+
+		$this->addToAssertionCount(1);
+	}
+
+	/**
 	 * In „Mehrere bearbeiten“ liest die Prüfung die Felder des jeweiligen
 	 * Datensatzes.
 	 *

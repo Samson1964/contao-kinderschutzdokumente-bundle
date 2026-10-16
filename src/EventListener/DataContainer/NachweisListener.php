@@ -27,6 +27,7 @@ use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Pruefung;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Zugang;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\EventListener\MeldungListener;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Regeln\Nachweis;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\Sicherheit\Kopiersperre;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Sicherheit\Verschiebesperre;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -93,12 +94,14 @@ class NachweisListener
 	 * „Mehrere bearbeiten“ row() für sie gar nicht erst aufruft.
 	 *
 	 * Verschieben (cut, cutAll, paste mit mode=cut) sperrt Verschiebesperre
-	 * mit 403; „notSortable“ allein ergäbe in 4.13 HTTP 500.
+	 * mit 403; „notSortable“ allein ergäbe in 4.13 HTTP 500. Ebenso sperrt
+	 * Kopiersperre „copy“ und „copyAll“, für die „notCopyable“ in 4.13 HTTP 500
+	 * ergäbe.
 	 *
 	 * Seiteneffekt: verändert $GLOBALS['TL_DCA']['tl_kinderschutz'] für die
 	 * laufende Anfrage.
 	 *
-	 * @throws \Contao\CoreBundle\Exception\AccessDeniedException Ohne Berechtigung oder beim Verschieben
+	 * @throws \Contao\CoreBundle\Exception\AccessDeniedException Ohne Berechtigung, beim Verschieben oder Kopieren
 	 */
 	#[AsCallback(table: 'tl_kinderschutz', target: 'config.onload')]
 	public function beimLaden(): void
@@ -107,6 +110,7 @@ class NachweisListener
 
 		$anfrage = $this->requestStack->getCurrentRequest();
 		Verschiebesperre::pruefe($anfrage);
+		Kopiersperre::pruefe($anfrage);
 		$do = (string) $anfrage?->query->get('do');
 		// Kleingeschrieben: „act=editall“ führt über $dc->$act() ebenfalls
 		// DC_Table::editAll() aus und darf Person und Art nicht freigeben.

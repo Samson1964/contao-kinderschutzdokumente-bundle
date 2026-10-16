@@ -147,6 +147,35 @@ class AntragListenerTest extends TestCase
 	}
 
 	/**
+	 * Auch ein einzelner Antrag lässt sich nicht kopieren.
+	 *
+	 * „notCopyable“ allein ergab im Prüfstand 4.13 HTTP 500 („Table
+	 * "tl_kinderschutz_antrag" is not copyable.“), in 5.7 dagegen 403.
+	 *
+	 * @dataProvider kopieraktionen
+	 *
+	 * @param string $act Die Aktion
+	 */
+	public function testKopierenGesperrt(string $act): void
+	{
+		$this->expectException(AccessDeniedException::class);
+		$this->listener(array('act' => $act))->beimLaden($this->dc(3));
+	}
+
+	/**
+	 * Die gesperrten Kopieraktionen.
+	 *
+	 * @return array<string, array{0: string}>
+	 */
+	public static function kopieraktionen(): array
+	{
+		return array(
+			'Kopieren'       => array('copy'),
+			'Kopieren groß'  => array('Copy'),
+		);
+	}
+
+	/**
 	 * Ein frisch angelegter Datensatz bekommt die Palette „direkt“.
 	 */
 	public function testNeuerDatensatzBekommtDiePaletteDirekt(): void
