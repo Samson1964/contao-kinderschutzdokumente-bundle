@@ -30,7 +30,7 @@ class Plugin implements BundlePluginInterface, RoutingPluginInterface
 	 * Meldet das Bundle beim Kernel an.
 	 *
 	 * Das Bundle wird nach dem Contao-Core geladen, damit dessen DCA-Dateien
-	 * (tl_user, tl_settings, tl_module) schon vorliegen, wenn das Bundle eigene
+	 * (tl_user, tl_module) schon vorliegen, wenn das Bundle eigene
 	 * Felder und Paletten ergänzt.
 	 *
 	 * @param ParserInterface $parser Wird nicht ausgewertet

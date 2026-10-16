@@ -19,6 +19,7 @@ $GLOBALS['TL_LANG']['MOD']['kinderschutz_papierkorb'] = array('Papierkorb', 'Dat
 $GLOBALS['TL_LANG']['MOD']['kinderschutz_antraege'] = array('Anträge', 'Anträge auf Freischaltung entscheiden und Mitglieder freischalten');
 $GLOBALS['TL_LANG']['MOD']['kinderschutz_veranstaltungen'] = array('Veranstaltungen', 'Veranstaltungen und ihre Teilnehmer');
 $GLOBALS['TL_LANG']['MOD']['kinderschutz_dokumentarten'] = array('Dokumentarten', 'Welche Unterlagen verlangt werden und wie lange sie gelten');
+$GLOBALS['TL_LANG']['MOD']['kinderschutz_einstellungen'] = array('Einstellungen', 'Gruppe, Seite, Absender, Fristen und Mailtexte');
 
 /*
  * Frontend-Module

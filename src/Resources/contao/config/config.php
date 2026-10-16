@@ -64,4 +64,9 @@ $GLOBALS['BE_MOD']['kinderschutz'] = array
 		'tables'                  => array('tl_kinderschutz_dokumentart'),
 		'disablePermissionChecks' => true,
 	),
+	'kinderschutz_einstellungen' => array
+	(
+		'tables'                  => array('tl_kinderschutz_einstellungen'),
+		'disablePermissionChecks' => true,
+	),
 );

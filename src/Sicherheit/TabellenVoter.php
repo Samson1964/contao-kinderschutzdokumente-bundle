@@ -41,6 +41,7 @@ class TabellenVoter implements VoterInterface
 		'tl_kinderschutz_veranstaltung',
 		'tl_kinderschutz_teilnahme',
 		'tl_kinderschutz_antrag',
+		'tl_kinderschutz_einstellungen',
 	);
 
 	/**
