@@ -15,6 +15,7 @@ use Contao\CoreBundle\Csrf\ContaoCsrfTokenManager;
 use Contao\CoreBundle\Exception\AccessDeniedException;
 use Doctrine\DBAL\Connection;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Backend\Uebersicht;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\Datenbank\AntragRepository;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Datenbank\DokumentartRepository;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Datenbank\NachweisRepository;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Datenbank\PersonenRepository;
@@ -327,6 +328,26 @@ class UebersichtTest extends Testhilfen
 	}
 
 	/**
+	 * Offene Anträge stehen mit Zahl und Link über der Matrix.
+	 *
+	 * Zwei Anträge sind offen, einer ist abgelehnt und zählt nicht mit. Der
+	 * Link führt auf den Menüpunkt „Anträge“.
+	 */
+	public function testOffeneAntraege(): void
+	{
+		$antraege = new AntragRepository($this->db);
+		$antraege->anlegen(4711, 'eins', array(), 1000);
+		$antraege->anlegen(4712, 'zwei', array(), 1000);
+		$entschieden = $antraege->anlegen(4713, 'drei', array(), 1000);
+		$antraege->aendern($entschieden, array('status' => AntragRepository::ABGELEHNT));
+
+		$daten = $this->uebersicht()->daten(new Request(), $this->jetzt);
+
+		$this->assertSame(2, $daten['offeneAntraege']);
+		$this->assertStringContainsString('do=kinderschutz_antraege', $daten['antraege']);
+	}
+
+	/**
 	 * Baut die Übersicht mit echtem Statusdienst und Mocks für den Rest.
 	 *
 	 * Der Router liefert „/contao?“ plus die Parameter (ohne Parameter nur
@@ -355,6 +376,7 @@ class UebersichtTest extends Testhilfen
 			$zugang ?? $this->createMock(Zugang::class),
 			$router,
 			$tokenManager,
+			new AntragRepository($this->db),
 		);
 	}
 

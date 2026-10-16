@@ -7,6 +7,9 @@ $t = $GLOBALS['TL_LANG']['MSC']['kinderschutz_be'];
 ?>
 <?= $this->meldungen ?>
 <div class="ks-uebersicht">
+  <?php if ($this->offeneAntraege > 0): ?>
+    <p class="tl_info ks-antraege"><a href="<?= StringUtil::specialchars($this->antraege) ?>"><?= 1 === $this->offeneAntraege ? $t['offenerAntrag'] : sprintf($t['offeneAntraege'], $this->offeneAntraege) ?></a></p>
+  <?php endif; ?>
   <form method="get" action="<?= StringUtil::specialchars($this->aktion) ?>" class="ks-auswahl">
     <input type="hidden" name="do" value="kinderschutz_uebersicht">
     <label for="ks-veranstaltung"><?= $t['auswahl'] ?></label>

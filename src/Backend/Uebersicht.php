@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace Schachbulle\ContaoKinderschutzdokumenteBundle\Backend;
 
 use Contao\CoreBundle\Csrf\ContaoCsrfTokenManager;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\Datenbank\AntragRepository;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Datenbank\PersonenRepository;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Datenbank\VeranstaltungRepository;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Statusdienst;
@@ -49,6 +50,7 @@ class Uebersicht
 	 * @param Zugang                  $zugang          Prüft die Berechtigung
 	 * @param UrlGeneratorInterface   $router          Baut die Links
 	 * @param ContaoCsrfTokenManager  $tokenManager    Anfragetoken für die Links
+	 * @param AntragRepository        $antraege        Zählt offene Anträge
 	 */
 	public function __construct(
 		private readonly Statusdienst $status,
@@ -56,11 +58,16 @@ class Uebersicht
 		private readonly Zugang $zugang,
 		private readonly UrlGeneratorInterface $router,
 		private readonly ContaoCsrfTokenManager $tokenManager,
+		private readonly AntragRepository $antraege,
 	) {
 	}
 
 	/**
 	 * Liefert die Variablen für das Template be_kinderschutz_uebersicht.
+	 *
+	 * Neben der Matrix gehören dazu die Zahl der offenen Anträge auf
+	 * Freischaltung (offeneAntraege) und der Link auf den Menüpunkt „Anträge“
+	 * (antraege); das Template zeigt den Hinweis nur bei mindestens einem.
 	 *
 	 * @param Request $request Die Anfrage mit „veranstaltung“ und „filter“
 	 * @param int     $jetzt   Aktueller Zeitpunkt
@@ -108,6 +115,8 @@ class Uebersicht
 			'arten'           => $matrix['arten'],
 			'zeilen'          => $zeilen,
 			'zaehler'         => $matrix['zaehler'],
+			'offeneAntraege'  => $this->antraege->offeneAnzahl(),
+			'antraege'        => $this->backend(array('do' => 'kinderschutz_antraege')),
 		);
 	}
 
