@@ -59,6 +59,14 @@ $GLOBALS['TL_DCA']['tl_kinderschutz_antrag'] = array
 		(
 			'fields' => array('member'),
 		),
+		// Bewusst leer: Contao 5.7 ergänzt für jede bearbeit- oder löschbare
+		// DC_Table-Tabelle „Mehrere bearbeiten“ (DefaultGlobalOperationsListener).
+		// Eine leere Liste lässt der Listener unangetastet (`[] === $dca`).
+		// Anträge werden einzeln entschieden, denn jede Entscheidung zieht
+		// Gruppe, Teilnahmen und Mails nach. „Neu“ (hier „Mitglied
+		// freischalten“) erzeugt DC_Table getrennt davon; Contao 4.13 kennt
+		// den Sammelknopf ohnehin nur, wenn die DCA ihn nennt.
+		'global_operations' => array(),
 		'operations' => array
 		(
 			'edit' => array

@@ -52,24 +52,32 @@ class AntragUndGruppeTest extends TestCase
 	}
 
 	/**
-	 * Der letzte Antrag ist der jüngste; ein ungespeicherter Entwurf zählt nicht.
+	 * Der letzte Antrag ist der mit dem jüngsten Antragsdatum, nicht der mit der größten ID.
+	 *
+	 * ID und Datum laufen hier gegenläufig (der ältere Antrag hat die größere ID),
+	 * und der ungespeicherte Entwurf aus „Mitglied freischalten“ trägt das
+	 * jüngste Datum von allen. Er darf trotzdem nicht gewinnen.
 	 */
 	public function testLetzterAntrag(): void
 	{
 		$antraege = new AntragRepository($this->db);
-		$alt = $antraege->anlegen(5, 'alt', array(), 1000);
-		$antraege->aendern($alt, array('status' => AntragRepository::ABGELEHNT, 'grund' => 'zu ungenau'));
-		$neu = $antraege->anlegen(5, 'neu', array(), 2000);
-		$antraege->aendern($neu, array('status' => AntragRepository::ABGELEHNT));
-		$this->db->insert('tl_kinderschutz_antrag', array('member' => 5, 'status' => ''));
+		$juenger = $antraege->anlegen(5, 'jünger', array(), 2000);
+		$antraege->aendern($juenger, array('status' => AntragRepository::ABGELEHNT, 'grund' => 'zu ungenau'));
+		$aelter = $antraege->anlegen(5, 'älter', array(), 1000);
+		$antraege->aendern($aelter, array('status' => AntragRepository::ABGELEHNT));
+		$this->db->insert('tl_kinderschutz_antrag', array('member' => 5, 'status' => '', 'beantragtAm' => 3000));
 
-		$this->assertSame($neu, (int) $antraege->letzterFuer(5)['id']);
+		$this->assertGreaterThan($juenger, $aelter, 'Der Test braucht gegenläufige IDs.');
+		$this->assertSame($juenger, (int) $antraege->letzterFuer(5)['id']);
+		$this->assertSame('zu ungenau', $antraege->letzterFuer(5)['grund']);
 		$this->assertNull($antraege->letzterFuer(6));
 		$this->assertSame(0, $antraege->offeneAnzahl());
 	}
 
 	/**
 	 * Beim Freischalten werden andere offene Anträge desselben Mitglieds mit geschlossen.
+	 *
+	 * Ein bereits abgelehnter Antrag desselben Mitglieds bleibt dabei, wie er ist.
 	 */
 	public function testSchliesseOffene(): void
 	{
@@ -77,6 +85,8 @@ class AntragUndGruppeTest extends TestCase
 		$offen = $antraege->anlegen(5, 'offen', array(), 1000);
 		$fremd = $antraege->anlegen(6, 'fremd', array(), 1000);
 		$selbst = $antraege->anlegen(5, 'selbst', array(), 1000);
+		$abgelehnt = $antraege->anlegen(5, 'abgelehnt', array(), 500);
+		$antraege->aendern($abgelehnt, array('status' => AntragRepository::ABGELEHNT, 'grund' => 'zu ungenau'));
 
 		$antraege->schliesseOffene(5, $selbst, 7, 3000);
 
@@ -85,6 +95,10 @@ class AntragUndGruppeTest extends TestCase
 		$this->assertSame(7, (int) $antraege->zeile($offen)['entschiedenVon']);
 		$this->assertSame('offen', $antraege->zeile($fremd)['status']);
 		$this->assertSame('offen', $antraege->zeile($selbst)['status']);
+		$this->assertSame('abgelehnt', $antraege->zeile($abgelehnt)['status']);
+		$this->assertSame(0, (int) $antraege->zeile($abgelehnt)['entschiedenAm']);
+		$this->assertSame(0, (int) $antraege->zeile($abgelehnt)['entschiedenVon']);
+		$this->assertSame('zu ungenau', $antraege->zeile($abgelehnt)['grund']);
 	}
 
 	/**
@@ -93,6 +107,7 @@ class AntragUndGruppeTest extends TestCase
 	public function testVeranstaltungenAusKaputtemWert(): void
 	{
 		$this->assertSame(array(), AntragRepository::veranstaltungenAus(null));
+		$this->assertSame(array(), AntragRepository::veranstaltungenAus(''));
 		$this->assertSame(array(), AntragRepository::veranstaltungenAus('kein serialisierter Wert'));
 		$this->assertSame(array(), AntragRepository::veranstaltungenAus(serialize('Text')));
 	}
@@ -116,17 +131,25 @@ class AntragUndGruppeTest extends TestCase
 
 	/**
 	 * Aktiv heißt: nicht gesperrt und im Aktivierungszeitraum.
+	 *
+	 * „disable“ ist in 4.13 '' oder '1', in 5.7 '0' oder '1'; beide
+	 * Schreibweisen für „nicht gesperrt“ zählen als aktiv.
 	 */
 	public function testIstAktivesMitglied(): void
 	{
 		$personen = new PersonenRepository($this->db);
 		$aktiv = Testdatenbank::mitglied($this->db, 'Anna', 'Adler', array(2));
+		$aktivNeu = Testdatenbank::mitglied($this->db, 'Nora', 'Neu', array(2), array('disable' => '0'));
 		$gesperrt = Testdatenbank::mitglied($this->db, 'Gerda', 'Gesperrt', array(2), array('disable' => '1'));
 		$vorbei = Testdatenbank::mitglied($this->db, 'Alf', 'Abgelaufen', array(2), array('stop' => '500'));
+		$spaeter = Testdatenbank::mitglied($this->db, 'Sven', 'Zukunft', array(2), array('start' => '2000'));
 
 		$this->assertTrue($personen->istAktivesMitglied($aktiv, 1000));
+		$this->assertTrue($personen->istAktivesMitglied($aktivNeu, 1000));
 		$this->assertFalse($personen->istAktivesMitglied($gesperrt, 1000));
 		$this->assertFalse($personen->istAktivesMitglied($vorbei, 1000));
+		$this->assertFalse($personen->istAktivesMitglied($spaeter, 1000));
+		$this->assertTrue($personen->istAktivesMitglied($spaeter, 2000), 'Ab „Aktivieren am“ ist das Mitglied aktiv.');
 		$this->assertFalse($personen->istAktivesMitglied(4711, 1000));
 	}
 
@@ -142,5 +165,21 @@ class AntragUndGruppeTest extends TestCase
 		Testdatenbank::mitglied($this->db, 'Gerda', 'Gesperrt', array(2), array('disable' => '1'));
 
 		$this->assertSame(array($carla, $ohne), array_column($personen->aktiveOhneGruppe(1, 1000), 'id'));
+	}
+
+	/**
+	 * Ohne gültige Gruppe gibt es keine Auswahl.
+	 *
+	 * Ist die Gruppe der freigeschalteten Mitglieder noch nicht eingestellt
+	 * (0), wäre sonst jedes aktive Mitglied „außerhalb der Gruppe“.
+	 */
+	public function testAktiveOhneGruppeOhneGueltigeGruppe(): void
+	{
+		$personen = new PersonenRepository($this->db);
+		Testdatenbank::mitglied($this->db, 'Anna', 'Adler', array(1, 2));
+		Testdatenbank::mitglied($this->db, 'Otto', 'Ohne', array());
+
+		$this->assertSame(array(), $personen->aktiveOhneGruppe(0, 1000));
+		$this->assertSame(array(), $personen->aktiveOhneGruppe(-1, 1000));
 	}
 }

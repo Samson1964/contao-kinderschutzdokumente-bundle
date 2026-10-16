@@ -14,7 +14,12 @@ namespace Schachbulle\ContaoKinderschutzdokumenteBundle\Datenbank;
 use Doctrine\DBAL\Connection;
 
 /**
- * Liest Mitglieder (tl_member) und Prüfer (tl_user).
+ * Liest Mitglieder (tl_member) und Prüfer (tl_user) und pflegt die Gruppen
+ * der Mitglieder.
+ *
+ * Geschrieben wird nur eine Spalte: inGruppeAufnehmen() ergänzt
+ * tl_member.groups. Alles andere an Mitgliedern und Benutzern wird nur
+ * gelesen.
  *
  * Die Spalte „groups“ ist in MySQL 8 ein reserviertes Wort und wird deshalb
  * immer über quoteIdentifier() angesprochen. Contao speichert die Gruppen
@@ -114,12 +119,18 @@ class PersonenRepository
 	}
 
 	/**
-	 * Sagt, ob ein Mitglied existiert und sich anmelden könnte.
+	 * Sagt, ob ein Mitglied existiert und aktiv ist.
+	 *
+	 * Aktiv heißt wie bei den übrigen Abfragen: nicht gesperrt und innerhalb
+	 * von „Aktivieren am“ und „Deaktivieren am“. Ob das Mitglied sich
+	 * tatsächlich anmelden darf (Anmeldung erlaubt, Login-Daten gesetzt), wird
+	 * nicht geprüft.
 	 *
 	 * @param int $id    ID des Mitglieds
 	 * @param int $jetzt Aktueller Zeitpunkt
 	 *
-	 * @return bool true für ein aktives Mitglied, gleich in welcher Gruppe
+	 * @return bool true für ein aktives Mitglied, gleich in welcher Gruppe;
+	 *              false auch, wenn das Mitglied nicht (mehr) existiert
 	 */
 	public function istAktivesMitglied(int $id, int $jetzt): bool
 	{
@@ -169,14 +180,20 @@ class PersonenRepository
 	 * Für die Auswahl beim direkten Freischalten. Gelesen wird die ganze
 	 * Mitgliedertabelle; bei einigen Tausend Mitgliedern ist das unkritisch.
 	 *
-	 * @param int $gruppe ID der Gruppe der freigeschalteten Mitglieder
+	 * @param int $gruppe ID der Gruppe der freigeschalteten Mitglieder; ist
+	 *                    sie noch nicht eingestellt (0 oder kleiner), gibt es
+	 *                    keine Auswahl, sonst wäre jedes Mitglied „außerhalb“
 	 * @param int $jetzt  Aktueller Zeitpunkt
 	 *
 	 * @return list<array{id: int, firstname: string, lastname: string, email: string}>
-	 *         Nach Nachname und Vorname sortiert
+	 *         Nach Nachname und Vorname sortiert; leer ohne gültige Gruppe
 	 */
 	public function aktiveOhneGruppe(int $gruppe, int $jetzt): array
 	{
+		if ($gruppe <= 0) {
+			return array();
+		}
+
 		$spalte = $this->db->quoteIdentifier('groups');
 		$zeilen = $this->db->fetchAllAssociative('SELECT id, firstname, lastname, email, '.$spalte.' AS gruppen, disable, start, stop FROM tl_member ORDER BY lastname, firstname');
 		$ergebnis = array();

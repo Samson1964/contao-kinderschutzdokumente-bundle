@@ -38,10 +38,21 @@ class AntragRepository
 	/**
 	 * Legt einen offenen Antrag an.
 	 *
-	 * @param int        $mitglied        ID des Mitglieds
-	 * @param string     $wofuer          Begründung, bereits bereinigt
-	 * @param list<int>  $veranstaltungen IDs der angekreuzten Veranstaltungen
-	 * @param int        $jetzt           Aktueller Zeitpunkt
+	 * Die Regel „höchstens ein offener Antrag je Mitglied“ prüft der Dienst
+	 * (offenerFuer()), nicht dieses Repository: Es legt jeden Antrag an, den
+	 * man ihm gibt.
+	 *
+	 * Seiteneffekt: schreibt eine neue Zeile in tl_kinderschutz_antrag (Stand
+	 * „offen“, Antrags- und Änderungszeit gleich $jetzt).
+	 *
+	 * @param int       $mitglied        ID des Mitglieds
+	 * @param string    $wofuer          Wofür das Mitglied die Freischaltung braucht,
+	 *                                   bereits bereinigt; die Begründung einer
+	 *                                   Ablehnung heißt dagegen „grund“
+	 * @param list<int> $veranstaltungen IDs der angekreuzten Veranstaltungen;
+	 *                                   werden als serialisierte Liste von Zahlen
+	 *                                   gespeichert
+	 * @param int       $jetzt           Aktueller Zeitpunkt
 	 *
 	 * @return int Die ID des Antrags
 	 */
@@ -117,8 +128,16 @@ class AntragRepository
 	/**
 	 * Ändert Spalten eines Antrags.
 	 *
+	 * Die Spaltennamen in $werte gehen ungeprüft in die SQL-Anweisung; sie
+	 * dürfen nie aus Benutzereingaben stammen. Ein leeres $werte ergibt eine
+	 * ungültige Anweisung und wirft eine DBAL-Ausnahme (Syntaxfehler). Eine
+	 * unbekannte ID ändert nichts und meldet keinen Fehler.
+	 *
+	 * Seiteneffekt: schreibt tl_kinderschutz_antrag. „tstamp“ wird nicht
+	 * selbst nachgeführt, wer es braucht, gibt es in $werte mit.
+	 *
 	 * @param int                  $id    ID des Antrags
-	 * @param array<string, mixed> $werte Spalten und Werte
+	 * @param array<string, mixed> $werte Spalten und neue Werte, nicht leer
 	 */
 	public function aendern(int $id, array $werte): void
 	{
@@ -129,7 +148,13 @@ class AntragRepository
 	 * Schließt die übrigen offenen Anträge eines frisch freigeschalteten Mitglieds.
 	 *
 	 * Schaltet der Prüfer direkt frei, während noch ein Antrag offen ist,
-	 * bliebe dieser sonst als „offen“ in der Liste stehen.
+	 * bliebe dieser sonst als „offen“ in der Liste stehen. Abgelehnte und schon
+	 * freigeschaltete Anträge sowie ungespeicherte Entwürfe (leerer Stand)
+	 * bleiben unverändert.
+	 *
+	 * Seiteneffekt: schreibt tl_kinderschutz_antrag (Stand, Entscheidungszeit,
+	 * Prüfer und Änderungszeit der betroffenen Zeilen); Begründung und
+	 * Veranstaltungen bleiben stehen.
 	 *
 	 * @param int $mitglied ID des Mitglieds
 	 * @param int $ausser   ID des Antrags, der gerade entschieden wurde

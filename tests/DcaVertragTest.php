@@ -74,6 +74,25 @@ class DcaVertragTest extends TestCase
 	}
 
 	/**
+	 * Die Antragsliste hat ausdrücklich keine globalen Operationen.
+	 *
+	 * Contao 5.7 ergänzt für jede DC_Table-Tabelle „Mehrere bearbeiten“, solange
+	 * sie bearbeitbar oder löschbar ist (DefaultGlobalOperationsListener). Bei
+	 * Anträgen ist das nicht gewollt: Jede Entscheidung läuft über die
+	 * Einzelmaske und zieht Gruppe, Teilnahmen und Mails nach. Der Listener lässt
+	 * eine leere Liste unangetastet (`[] === $dca`); fehlte der Schlüssel,
+	 * erschiene der Knopf. „Neu“ (hier „Mitglied freischalten“) erzeugt
+	 * DC_Table getrennt davon.
+	 */
+	public function testAntraegeHabenKeineGlobalenOperationen(): void
+	{
+		$liste = $this->ladeDca('tl_kinderschutz_antrag')['list'];
+
+		$this->assertArrayHasKey('global_operations', $liste);
+		$this->assertSame(array(), $liste['global_operations']);
+	}
+
+	/**
 	 * Die eigenen Tabellen haben leere Contao-Berechtigungen.
 	 *
 	 * Die Kinderschutz-Module schalten Contaos Modul- und Tabellenrechte ab
