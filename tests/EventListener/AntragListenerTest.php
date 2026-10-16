@@ -23,8 +23,6 @@ use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Zugang;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\EventListener\DataContainer\AntragListener;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\EventListener\MeldungListener;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Tests\EingabeAttrappe;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
  * Prüft Zugang, Palettenwahl, Eingabeprüfung und Rückmeldung der Maske „Anträge“.
@@ -291,6 +289,22 @@ class AntragListenerTest extends TestCase
 	}
 
 	/**
+	 * Maßgeblich ist die Begründung, die Contao über Input::post() liest.
+	 *
+	 * Contao 4.13 normalisiert POST-Namen; der Symfony-Request kann deshalb
+	 * „x“ enthalten, während Contao „“ speichert. Die Attrappe liefert den
+	 * Wert, den Contao sieht – hier leer –, und die Prüfung bekommt genau ihn.
+	 */
+	public function testStatusPruefenNimmtDieBegruendungAusDemInputAdapter(): void
+	{
+		$freischaltung = $this->createMock(Freischaltung::class);
+		$freischaltung->expects($this->once())->method('pruefeEntscheidung')->with($this->anything(), 'abgelehnt', '', $this->isType('int'))->willReturn('antragGrundFehlt');
+
+		$this->expectException(\RuntimeException::class);
+		$this->listener(array('freischaltung' => $freischaltung, 'zeile' => array('status' => 'offen', 'entschiedenAm' => 0), 'post' => array('grund' => '')))->statusPruefen('abgelehnt', $this->dc(3));
+	}
+
+	/**
 	 * Die Mitgliedsauswahl in „Mitglied freischalten“ meldet ihren Fehler am Feld.
 	 */
 	public function testMitgliedPruefenWirftMitText(): void
@@ -480,9 +494,7 @@ class AntragListenerTest extends TestCase
 		$antraege->method('zeile')->willReturn(isset($ersatz['zeile']) ? $ersatz['zeile'] + array('id' => 3, 'member' => 5) : null);
 
 		$act = $ersatz['act'] ?? 'edit';
-		$stapel = new RequestStack();
 		$abfrage = ('' === $act ? array() : array('act' => $act)) + (isset($ersatz['mode']) ? array('mode' => $ersatz['mode']) : array());
-		$stapel->push(new Request($abfrage, $ersatz['post'] ?? array()));
 
 		return new AntragListener(
 			$ersatz['zugang'] ?? $this->createMock(Zugang::class),
@@ -492,8 +504,7 @@ class AntragListenerTest extends TestCase
 			$ersatz['einstellungen'] ?? $this->createMock(Einstellungen::class),
 			$ersatz['freischaltung'] ?? $this->createMock(Freischaltung::class),
 			$ersatz['meldungen'] ?? $this->createMock(MeldungListener::class),
-			$stapel,
-			$this->eingabe($abfrage),
+			$this->eingabe($abfrage, $ersatz['post'] ?? array()),
 		);
 	}
 }

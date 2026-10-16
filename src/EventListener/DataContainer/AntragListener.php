@@ -16,6 +16,7 @@ use Contao\CoreBundle\Exception\AccessDeniedException;
 use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\DataContainer;
 use Contao\Date;
+use Contao\Input;
 use Contao\StringUtil;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Datenbank\AntragRepository;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Datenbank\PersonenRepository;
@@ -27,7 +28,6 @@ use Schachbulle\ContaoKinderschutzdokumenteBundle\EventListener\MeldungListener;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Sicherheit\Aktion;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Sicherheit\Kopiersperre;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Sicherheit\Verschiebesperre;
-use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
  * Callbacks von tl_kinderschutz_antrag: Zugang, Palettenwahl,
@@ -53,9 +53,8 @@ class AntragListener
 	 * @param Einstellungen           $einstellungen   Die Freischaltgruppe
 	 * @param Freischaltung           $freischaltung   Prüfung und Folgen
 	 * @param MeldungListener         $meldungen       Hinweise, die „Speichern und schließen“ überstehen
-	 * @param RequestStack            $requestStack    Formularwerte der Anfrage (Begründung)
-	 * @param ContaoFramework         $framework       Input-Adapter: „act“ und „mode“, wie
-	 *                                                 Contao sie liest (siehe Sicherheit\Aktion)
+	 * @param ContaoFramework         $framework       Input-Adapter: „act“, „mode“ und die
+	 *                                                 Begründung, wie Contao sie liest
 	 */
 	public function __construct(
 		private readonly Zugang $zugang,
@@ -65,7 +64,6 @@ class AntragListener
 		private readonly Einstellungen $einstellungen,
 		private readonly Freischaltung $freischaltung,
 		private readonly MeldungListener $meldungen,
-		private readonly RequestStack $requestStack,
 		private readonly ContaoFramework $framework,
 	) {
 	}
@@ -133,11 +131,14 @@ class AntragListener
 	 *
 	 * Die Begründung kommt aus dem Formular: Sie steht in der Palette nach
 	 * dem Stand und ist beim Speichern des Stands noch nicht geschrieben.
-	 * Gelesen wird über den RequestStack statt Contao\Input, damit der
-	 * Listener ohne Contao-Container testbar bleibt. Der Wert kommt dort roh
-	 * an (im Prüfstand 5.7 „<b></b>“, nicht „&#60;b>“); pruefeEntscheidung()
-	 * entkodiert und entfernt Tags vor der Leerprüfung, versteht also beide
-	 * Formen.
+	 * Gelesen wird über den Input-Adapter mit Input::post('grund', true) –
+	 * genau so, wie das Textfeld (decodeEntities) den Wert speichert. Der
+	 * Symfony-Request taugt nicht: Contao 4.13 normalisiert auch die Namen der
+	 * POST-Felder (cleanKey, der letzte gleiche Name gewinnt), so dass
+	 * „grund=x&gr%0Dund=“ die Prüfung mit „x“ bestanden und „“ gespeichert
+	 * hätte. Der Wert kann je Fassung teils kodiert ankommen (4.13 ohne
+	 * decodeEntities gemessen: „&lt;b&#62;&lt;/b&#62;“); pruefeEntscheidung()
+	 * entkodiert und entfernt Tags vor der Leerprüfung, versteht also jede Form.
 	 * Ein Feldsuffix wie in „Mehrere bearbeiten“ (grund_3) gibt es nicht,
 	 * weil beimLaden() alle Sammelaktionen sperrt.
 	 *
@@ -151,7 +152,7 @@ class AntragListener
 	#[AsCallback(table: 'tl_kinderschutz_antrag', target: 'fields.status.save')]
 	public function statusPruefen(mixed $wert, DataContainer $dc): mixed
 	{
-		$grund = (string) $this->requestStack->getCurrentRequest()?->request->get('grund', '');
+		$grund = (string) $this->framework->getAdapter(Input::class)->post('grund', true);
 		$fehler = $this->freischaltung->pruefeEntscheidung($this->antraege->zeile((int) $dc->id), (string) $wert, $grund, time());
 
 		if (null !== $fehler) {

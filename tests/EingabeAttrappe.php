@@ -28,18 +28,21 @@ trait EingabeAttrappe
 	/**
 	 * Baut die Framework-Attrappe.
 	 *
-	 * @param array<string, mixed> $abfrage Parameter, wie Input::get() sie
-	 *                                      liefert; fehlende ergeben null
+	 * @param array<string, mixed> $abfrage  Parameter, wie Input::get() sie
+	 *                                       liefert; fehlende ergeben null
+	 * @param array<string, mixed> $formular Formularfelder, wie Input::post()
+	 *                                       sie liefert; fehlende ergeben null
 	 *
 	 * @return ContaoFramework Die Attrappe; jeder andere Adapter ist ein echter
 	 */
-	private function eingabe(array $abfrage): ContaoFramework
+	private function eingabe(array $abfrage, array $formular = array()): ContaoFramework
 	{
 		$input = $this->getMockBuilder(Adapter::class)
 			->setConstructorArgs(array(Input::class))
-			->addMethods(array('get'))
+			->addMethods(array('get', 'post'))
 			->getMock();
 		$input->method('get')->willReturnCallback(static fn (string $name) => $abfrage[$name] ?? null);
+		$input->method('post')->willReturnCallback(static fn (string $name) => $formular[$name] ?? null);
 
 		$framework = $this->createMock(ContaoFramework::class);
 		$framework->method('getAdapter')->willReturnCallback(static fn (string $klasse) => Input::class === $klasse ? $input : new Adapter($klasse));
