@@ -1,6 +1,6 @@
 # Änderungen
 
-## Version 1.2.0 (JJJJ-MM-TT)
+## Version 1.2.0 (2026-10-16)
 
 * Add: Antrag auf Freischaltung im Frontend-Modul „Meine Unterlagen“ für Mitglieder außerhalb der Freischaltgruppe, mit Begründung („Wofür“, höchstens 500 Zeichen) und kommenden wählbaren Veranstaltungen; Mail an die Prüfer. Ein offener Antrag wird samt Veranstaltungen angezeigt, ein abgelehnter mit Begründung und neuem Formular
 * Add: Backend-Menüpunkt „Anträge“: freischalten (Gruppe, Veranstaltungen, Mail), ablehnen mit Begründung per Mail, „Mitglied freischalten“ ohne Antrag; nach der Entscheidung nur noch lesbar; Hinweis auf offene Anträge in der Übersicht
