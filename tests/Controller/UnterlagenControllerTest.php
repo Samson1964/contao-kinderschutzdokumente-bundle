@@ -879,6 +879,7 @@ class UnterlagenControllerTest extends Testhilfen
 		$this->assertNull($vorlage->daten['antrag']['abgelehnt']);
 		$this->assertSame(array($cup), array_map(static fn (array $v): int => (int) $v['id'], $vorlage->daten['antrag']['waehlbare']));
 		$this->assertSame(500, $vorlage->daten['antrag']['maximal']);
+		$this->assertSame(array(), $vorlage->daten['antrag']['gewaehlte'], 'Ohne offenen Antrag keine angekreuzten Veranstaltungen.');
 		$this->assertSame('kinderschutz_7', $vorlage->daten['formular']);
 		$this->assertArrayNotHasKey('arten', $vorlage->daten, 'Ohne Freischaltung keine Checkliste.');
 		$this->assertEqualsCanonicalizing(
@@ -973,6 +974,80 @@ class UnterlagenControllerTest extends Testhilfen
 
 		$this->assertSame(array(), $this->teilnahmen($veranstaltung));
 		$this->assertNull((new AntragRepository($this->db))->offenerFuer($carla));
+	}
+
+	/**
+	 * Der offene Antrag zeigt auch die angekreuzten Veranstaltungen, gelöschte fallen weg.
+	 *
+	 * Gespeichert sind die IDs; die Vorlage bekommt die Zeilen der noch
+	 * vorhandenen Veranstaltungen in der gespeicherten Reihenfolge. Eine
+	 * inzwischen gelöschte Veranstaltung (hier ID 9999) erscheint nicht.
+	 */
+	public function testOffenerAntragZeigtAngekreuzteVeranstaltungen(): void
+	{
+		$carla = Testdatenbank::mitglied($this->db, 'Carla', 'Cramer', array(2));
+		$jwm = Testdatenbank::veranstaltung($this->db, 'JWM Kreta', $this->tag(60));
+		$cup = Testdatenbank::veranstaltung($this->db, 'Herbstcup', $this->tag(30));
+		(new AntragRepository($this->db))->anlegen($carla, 'Betreuung', array($jwm, 9999, $cup), time() - 60);
+		$vorlage = $this->vorlage();
+
+		$this->ausfuehren($this->controller(array('token' => $this->speicher('frontend', $carla))), $this->anfrage(), $vorlage);
+
+		$this->assertSame(array('JWM Kreta', 'Herbstcup'), array_map(static fn (array $v): string => (string) $v['name'], $vorlage->daten['antrag']['gewaehlte']));
+	}
+
+	/**
+	 * Eine Begründung als Liste (wofuer[]=…) wird abgelehnt, ohne Antrag und ohne „Array“ im Feld.
+	 *
+	 * Symfony 5.4 (Contao 4.13) liefert die Liste über get() mit einer
+	 * Veraltet-Meldung zurück, Symfony 7.4 wirft eine BadRequestException.
+	 * Beides darf nicht passieren: Es gibt die gewohnte Fehlermeldung.
+	 */
+	public function testBegruendungAlsListeWirdAbgelehnt(): void
+	{
+		$carla = Testdatenbank::mitglied($this->db, 'Carla', 'Cramer', array(2));
+		$vorlage = $this->vorlage();
+
+		$this->ausfuehren(
+			$this->controller(array('token' => $this->speicher('frontend', $carla))),
+			$this->anfrage('POST', array('FORM_SUBMIT' => 'kinderschutz_7_antrag', 'wofuer' => array('Training', 'U12'))),
+			$vorlage
+		);
+
+		$this->assertSame($GLOBALS['TL_LANG']['MSC']['kinderschutz_fe']['fehler']['antrag_wofuer'], $vorlage->daten['antrag']['fehler']);
+		$this->assertSame('', $vorlage->daten['antrag']['wofuer']);
+		$this->assertNull((new AntragRepository($this->db))->offenerFuer($carla));
+	}
+
+	/**
+	 * Veranstaltungen als Einzelwert oder verschachtelt führen nicht zu einer Fehlerseite.
+	 *
+	 * Ein Einzelwert gilt als Liste mit einem Eintrag; verschachtelte Werte
+	 * werden verworfen (intval() einer Liste ergäbe sonst die ID 1). Der
+	 * Antrag selbst kommt in beiden Fällen zustande.
+	 */
+	public function testVeranstaltungenAlsEinzelwertOderVerschachtelt(): void
+	{
+		$cup = Testdatenbank::veranstaltung($this->db, 'Herbstcup', $this->tag(30));
+		$antraege = new AntragRepository($this->db);
+
+		foreach (array(
+			'Einzelwert'    => array((string) $cup, array($cup)),
+			'verschachtelt' => array(array(array((string) $cup), array('1')), array()),
+		) as $fall => list($eingabe, $erwartet)) {
+			$mitglied = Testdatenbank::mitglied($this->db, 'Carla', $fall, array(2));
+			$anfrage = $this->anfrage('POST', array(
+				'FORM_SUBMIT'     => 'kinderschutz_7_antrag',
+				'wofuer'          => 'Betreuung',
+				'veranstaltungen' => $eingabe,
+			));
+
+			$this->erwarteUmleitung($this->controller(array('token' => $this->speicher('frontend', $mitglied))), $anfrage, $this->vorlage());
+
+			$antrag = $antraege->offenerFuer($mitglied);
+			$this->assertNotNull($antrag, $fall);
+			$this->assertSame($erwartet, AntragRepository::veranstaltungenAus($antrag['veranstaltungen']), $fall);
+		}
 	}
 
 	/**

@@ -25,13 +25,21 @@ $this->extend('block_unsearchable');
   <?php if (null !== $a['offen']): ?>
     <p class="ks-text"><?= sprintf($t['antragOffen'], Date::parse('d.m.Y', (int) $a['offen']['beantragtAm'])) ?></p>
     <p class="ks-text ks-grund"><?= nl2br($sicher($a['offen']['wofuer'])) ?></p>
+    <?php if (!empty($a['gewaehlte'])): ?>
+      <p class="ks-text"><?= $t['antragGewaehlt'] ?></p>
+      <ul class="ks-antrag-gewaehlt">
+        <?php foreach ($a['gewaehlte'] as $v): ?>
+          <li><?= $sicher($v['name']) ?> (<?= Date::parse('d.m.Y', (int) $v['startDate']) ?>)</li>
+        <?php endforeach; ?>
+      </ul>
+    <?php endif; ?>
   <?php else: ?>
     <p class="ks-text"><?= $t['antragErklaerung'] ?></p>
     <?php if (null !== $a['abgelehnt']): ?>
       <p class="ks-text ks-grund"><?= sprintf($t['antragAbgelehnt'], Date::parse('d.m.Y', (int) $a['abgelehnt']['beantragtAm']), nl2br($sicher($a['abgelehnt']['grund']))) ?></p>
     <?php endif; ?>
     <?php if ('' !== $a['fehler']): ?><p class="ks-fehler" role="alert" id="ks-antrag-fehler"><?= StringUtil::specialchars($a['fehler']) ?></p><?php endif; ?>
-    <form method="post" class="ks-formular">
+    <form method="post" class="ks-formular ks-antrag">
       <input type="hidden" name="FORM_SUBMIT" value="<?= $this->formular ?>_antrag">
       <input type="hidden" name="REQUEST_TOKEN" value="<?= StringUtil::specialchars($this->requestToken) ?>">
       <label for="ks-wofuer"><?= $t['wofuer'] ?></label>

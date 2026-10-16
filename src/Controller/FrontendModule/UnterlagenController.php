@@ -159,8 +159,9 @@ class UnterlagenController extends AbstractFrontendModuleController
 	 *
 	 * Gesperrte, abgelaufene oder gelöschte Konten bekommen nur den Hinweis
 	 * „keinZugang“, ohne Gruppe „nichtEingerichtet“. Sonst zeigt die Vorlage
-	 * den offenen Antrag, oder das Formular – nach einer Ablehnung mit deren
-	 * Begründung. Die Mitglieds-ID stammt immer aus dem Token.
+	 * den offenen Antrag samt angekreuzter Veranstaltungen, oder das
+	 * Formular – nach einer Ablehnung mit deren Begründung. Die Mitglieds-ID
+	 * stammt immer aus dem Token.
 	 *
 	 * Upload- und Anmeldeformulare werden hier bewusst nicht ausgewertet:
 	 * Wer nicht freigeschaltet ist, darf nichts einreichen, auch nicht mit
@@ -200,10 +201,18 @@ class UnterlagenController extends AbstractFrontendModuleController
 		$wofuer = '';
 
 		if ($request->isMethod('POST') && $formular.'_antrag' === $request->request->get('FORM_SUBMIT')) {
-			$wofuer = (string) $request->request->get('wofuer', '');
-			// all() mit Schlüssel gibt es seit Symfony 5.0 (4.13 hat 5.4); ein
-			// fehlender Schlüssel ergibt ein leeres Array
-			$schluessel = $this->freischaltung->beantragen($mitglied, $wofuer, array_map('intval', $request->request->all('veranstaltungen')), $jetzt);
+			// Die Felder werden über all() ohne Schlüssel gelesen: get() liefert
+			// bei „wofuer[]=…“ in Symfony 5.4 (4.13) ein Array mit
+			// Veraltet-Meldung und wirft in 7.4 (5.7) eine BadRequestException,
+			// all('veranstaltungen') wirft bei einem Einzelwert in beiden
+			$eingaben = $request->request->all();
+			$eingabe = $eingaben['wofuer'] ?? '';
+			$schluessel = 'wofuer';
+
+			if (is_string($eingabe)) {
+				$wofuer = $eingabe;
+				$schluessel = $this->freischaltung->beantragen($mitglied, $wofuer, $this->angekreuzte($eingaben['veranstaltungen'] ?? array()), $jetzt);
+			}
 
 			if (null === $schluessel) {
 				$this->weiter($request, $texte['antragGestellt']);
@@ -214,6 +223,17 @@ class UnterlagenController extends AbstractFrontendModuleController
 
 		$offen = $this->antraege->offenerFuer($mitglied);
 		$letzter = null === $offen ? $this->antraege->letzterFuer($mitglied) : null;
+		$gewaehlte = array();
+
+		// Gelöschte Veranstaltungen fallen weg: Mit einer bloßen ID kann das
+		// Mitglied nichts anfangen, und freischalten lässt sich dafür ohnehin nichts
+		foreach (null === $offen ? array() : AntragRepository::veranstaltungenAus($offen['veranstaltungen']) as $id) {
+			$zeile = $this->veranstaltungen->eine($id);
+
+			if (null !== $zeile) {
+				$gewaehlte[] = $zeile;
+			}
+		}
 
 		$GLOBALS['TL_CSS'][] = 'bundles/contaokinderschutzdokumente/frontend.css|static';
 		$template->formular = $formular;
@@ -227,9 +247,31 @@ class UnterlagenController extends AbstractFrontendModuleController
 			// Nach einem Fehler bekommt das Mitglied seinen Text zurück
 			'wofuer'    => '' !== $fehler ? $wofuer : '',
 			'maximal'   => Freischaltung::WOFUER_MAX,
+			'gewaehlte' => $gewaehlte,
 		);
 
 		return $template->getResponse();
+	}
+
+	/**
+	 * Macht aus dem Formularwert „veranstaltungen“ eine Liste von IDs.
+	 *
+	 * Das Formular schickt eine Liste (veranstaltungen[]). Ein nachgebautes
+	 * Formular kann stattdessen einen Einzelwert oder verschachtelte Listen
+	 * schicken; der Einzelwert gilt als Liste mit einem Eintrag,
+	 * verschachtelte Einträge werden verworfen – intval() einer Liste ergäbe
+	 * sonst 1 und damit womöglich eine echte Veranstaltung. Ob eine ID
+	 * wählbar ist, prüft danach Freischaltung::beantragen().
+	 *
+	 * @param mixed $wert Der rohe Wert aus der Anfrage
+	 *
+	 * @return list<int> Die IDs, leer bei fehlendem oder unbrauchbarem Wert
+	 */
+	private function angekreuzte(mixed $wert): array
+	{
+		$liste = is_array($wert) ? $wert : array($wert);
+
+		return array_values(array_map('intval', array_filter($liste, 'is_scalar')));
 	}
 
 	/**

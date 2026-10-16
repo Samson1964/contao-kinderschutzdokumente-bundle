@@ -104,6 +104,7 @@ $GLOBALS['TL_LANG']['MSC']['kinderschutz_fe'] = array
 	'antragStellen'         => 'Antrag stellen',
 	'antragGestellt'        => 'Vielen Dank, Ihr Antrag ist eingegangen. Sie bekommen eine Mail, sobald er entschieden ist.',
 	'antragOffen'           => 'Ihr Antrag vom %s wird geprüft.',
+	'antragGewaehlt'        => 'Angegebene Veranstaltungen:',
 	'antragAbgelehnt'       => 'Ihr Antrag vom %s wurde nicht angenommen. Begründung: %s',
 	'unterlagen'      => 'Meine Unterlagen',
 	'pflicht'         => 'Pflicht',

@@ -439,7 +439,9 @@ class UnterlagenVorlageTest extends TestCase
 		$this->assertSame(1, $formulare->length, 'Nur das Antragsformular.');
 		$formular = $formulare->item(0);
 		$this->assertSame('post', $formular->getAttribute('method'));
-		$this->assertSame('kinderschutz_7_antrag', $this->wert($formular, './/input[@name="FORM_SUBMIT"]'));
+		// Eigene Klasse, damit Textfeld und Veranstaltungskasten die ganze Breite bekommen (frontend.css)
+		$this->assertSame('ks-formular ks-antrag', $formular->getAttribute('class'));
+		$this->assertSame('kinderschutz_7_antrag',$this->wert($formular, './/input[@name="FORM_SUBMIT"]'));
 		$this->assertSame(self::ANFRAGETOKEN, $this->wert($formular, './/input[@type="hidden"][@name="REQUEST_TOKEN"]'));
 		$this->assertSame('500', $this->wert($formular, './/textarea[@name="wofuer"][@required]', 'maxlength'));
 		$this->assertSame(array('9', '11'), array_map(
@@ -468,18 +470,33 @@ class UnterlagenVorlageTest extends TestCase
 	}
 
 	/**
-	 * Offener Antrag: Stand und Begründung statt Formular; Ablehnung: Grund über dem Formular.
+	 * Offener Antrag: Stand, Begründung und angekreuzte Veranstaltungen statt Formular; Ablehnung: Grund über dem Formular.
 	 */
 	public function testOffenerUndAbgelehnterAntragImMarkup(): void
 	{
 		$daten = $this->antragsbasis();
 		$daten['antrag']['offen'] = array('id' => 3, 'beantragtAm' => $this->tage(-2), 'wofuer' => "Training U12\nim Verein X");
+		$daten['antrag']['gewaehlte'] = array(
+			array('id' => 11, 'name' => 'JWM Kreta', 'startDate' => $this->tage(30)),
+			array('id' => 9, 'name' => 'Herbstcup', 'startDate' => $this->tage(10)),
+		);
 
 		$html = $this->rendere($daten);
 
 		$this->assertCount(0, $this->abfrage($html, '//form'), 'Bei offenem Antrag kein zweites Formular.');
 		$this->assertStringContainsString(sprintf($GLOBALS['TL_LANG']['MSC']['kinderschutz_fe']['antragOffen'], '13.10.2026'), $html);
 		$this->assertStringContainsString('Training U12<br />', $html);
+		$this->assertStringContainsString($GLOBALS['TL_LANG']['MSC']['kinderschutz_fe']['antragGewaehlt'], $html);
+		$this->assertSame(array('JWM Kreta (14.11.2026)', 'Herbstcup (25.10.2026)'), array_map(
+			static fn (\DOMNode $eintrag): string => trim($eintrag->textContent),
+			iterator_to_array($this->abfrage($html, '//ul[@class="ks-antrag-gewaehlt"]/li'))
+		));
+
+		// Ohne angekreuzte Veranstaltungen weder Liste noch Überschrift dazu
+		$daten['antrag']['gewaehlte'] = array();
+		$html = $this->rendere($daten);
+		$this->assertCount(0, $this->abfrage($html, '//ul'));
+		$this->assertStringNotContainsString($GLOBALS['TL_LANG']['MSC']['kinderschutz_fe']['antragGewaehlt'], $html);
 
 		$daten = $this->antragsbasis();
 		$daten['antrag']['abgelehnt'] = array('id' => 2, 'beantragtAm' => $this->tage(-10), 'grund' => 'Bitte genauer angeben.');
@@ -506,6 +523,7 @@ class UnterlagenVorlageTest extends TestCase
 
 		$offen = $this->antragsbasis();
 		$offen['antrag']['offen'] = array('id' => 3, 'beantragtAm' => $this->tage(-2), 'wofuer' => $boese);
+		$offen['antrag']['gewaehlte'] = array(array('id' => 9, 'name' => 'Cup {{date}} <i>x</i>', 'startDate' => $this->tage(10)));
 
 		$fehler = $this->antragsbasis();
 		// Die Fehlermeldung stammt aus der Sprachdatei, nicht vom Mitglied; geprüft wird nur das Maskieren
@@ -526,8 +544,10 @@ class UnterlagenVorlageTest extends TestCase
 			$this->assertStringContainsString($boese, $this->dokument($html)->textContent, $fall.': Der Text bleibt wörtlich sichtbar.');
 		}
 
+		$this->assertStringContainsString('Cup {{date}} <i>x</i>', $this->dokument($this->rendere($offen))->textContent, 'Der Veranstaltungsname bleibt wörtlich sichtbar.');
+
 		$html = $this->rendere($fehler);
-		$this->assertSame($boese, $this->abfrage($html, '//textarea[@name="wofuer"]')->item(0)->textContent);
+		$this->assertSame($boese,$this->abfrage($html, '//textarea[@name="wofuer"]')->item(0)->textContent);
 		$this->assertStringContainsString('Grund {{env::path}} <u>x</u>', $this->dokument($html)->textContent);
 		$this->assertSame('ks-antrag-fehler', $this->wert($this->abfrage($html, '//form')->item(0), './/textarea', 'aria-describedby'));
 	}
@@ -555,6 +575,7 @@ class UnterlagenVorlageTest extends TestCase
 				'fehler'    => '',
 				'wofuer'    => '',
 				'maximal'   => 500,
+				'gewaehlte' => array(),
 			),
 		);
 	}

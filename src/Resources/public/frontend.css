@@ -80,8 +80,22 @@
 	}
 }
 
-/* Antragsformular: Veranstaltungen untereinander */
+/*
+ * Antragsformular: .ks-formular ist eine Flex-Zeile. Textfeld und
+ * Veranstaltungskasten bekommen je eine eigene, volle Zeile, sonst stünden
+ * sie schmal neben Beschriftung und Knopf.
+ */
+.ks-antrag textarea {
+	flex-basis: 100%;
+	width: 100%;
+	box-sizing: border-box;
+}
+
+/* Veranstaltungen untereinander; min-width: 0 hebt die Mindestbreite von fieldset auf */
 .ks-antrag-veranstaltungen {
+	flex-basis: 100%;
+	min-width: 0;
+	box-sizing: border-box;
 	margin: 0.75em 0;
 	padding: 0.5em 0.75em;
 }
