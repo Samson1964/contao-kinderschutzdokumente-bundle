@@ -80,6 +80,47 @@ class VeranstaltungListenerTest extends TestCase
 	}
 
 	/**
+	 * Die Listenzeile nennt Zeitraum, Ort und Zahl der Teilnehmer.
+	 */
+	public function testBeschriftungMitZeitraumUndOrt(): void
+	{
+		$zeile = array('id' => 1, 'name' => '[Test] JWM', 'ort' => 'Heraklion', 'startDate' => mktime(0, 0, 0, 11, 15, 2026), 'endDate' => mktime(0, 0, 0, 11, 25, 2026));
+
+		$this->assertSame('<strong>[Test] JWM</strong> <span class="tl_gray">(15.11.2026 – 25.11.2026, Heraklion) · 2 Teilnehmer</span>', $this->listener(array(990097, 990098))->beschriftung($zeile));
+	}
+
+	/**
+	 * Ohne Beginn steht kein 01.01.1970 in der Liste.
+	 *
+	 * „Neu“ legt den Datensatz sofort an, Beginn und Ende sind NULL. Bleibt
+	 * der Entwurf liegen (Maske ohne Speichern verlassen), zeigte die Liste im
+	 * Prüfstand 4.13 „(01.01.1970) · 0 Teilnehmer“.
+	 *
+	 * @dataProvider entwuerfe
+	 *
+	 * @param array<string, mixed> $zeile    Der Datensatz
+	 * @param string               $erwartet Die erwartete Beschriftung
+	 */
+	public function testBeschriftungOhneBeginn(array $zeile, string $erwartet): void
+	{
+		$this->assertSame($erwartet, $this->listener(array())->beschriftung($zeile + array('id' => 3, 'name' => '', 'startDate' => null, 'endDate' => null)));
+	}
+
+	/**
+	 * Entwürfe ohne Beginn, mit und ohne Ort.
+	 *
+	 * @return array<string, array{0: array<string, mixed>, 1: string}>
+	 */
+	public function entwuerfe(): array
+	{
+		return array(
+			'leer'     => array(array('ort' => ''), '<strong></strong> <span class="tl_gray">· 0 Teilnehmer</span>'),
+			'nur Ort'  => array(array('ort' => 'Berlin'), '<strong></strong> <span class="tl_gray">(Berlin) · 0 Teilnehmer</span>'),
+			'Null-Tag' => array(array('ort' => '', 'startDate' => 0, 'endDate' => 0), '<strong></strong> <span class="tl_gray">· 0 Teilnehmer</span>'),
+		);
+	}
+
+	/**
 	 * Baut den Listener mit festen Teilnehmern.
 	 *
 	 * @param list<int>                    $teilnehmer      Mitglieds-IDs, die das Repository liefert

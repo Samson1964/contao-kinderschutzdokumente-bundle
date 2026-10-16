@@ -138,6 +138,12 @@ class VeranstaltungListener
 	/**
 	 * Beschriftet eine Zeile: Name, Zeitraum, Ort, Zahl der Teilnehmer.
 	 *
+	 * Ohne Beginn entfällt der Zeitraum, ohne Zeitraum und Ort die Klammer.
+	 * Das betrifft unfertige Entwürfe: „Neu“ legt den Datensatz sofort an,
+	 * Beginn und Ende sind NULL, und verlässt der Prüfer die Maske ohne
+	 * Speichern, bleibt er stehen (4.13 räumt ihn nur über „Zurück“ ab). Die
+	 * Liste zeigte im Prüfstand 4.13 dafür „(01.01.1970)“.
+	 *
 	 * @param array<string, mixed> $zeile Der Datensatz
 	 * @param string               $label Contaos Vorschlag, unbenutzt
 	 * @param DataContainer|null   $dc    Der Data Container
@@ -148,12 +154,21 @@ class VeranstaltungListener
 	#[AsCallback(table: 'tl_kinderschutz_veranstaltung', target: 'list.label.label')]
 	public function beschriftung(array $zeile, string $label = '', ?DataContainer $dc = null, ?array $args = null): string
 	{
-		$beginn = (int) $zeile['startDate'];
+		$beginn = (int) ($zeile['startDate'] ?? 0);
 		$ende = (int) ($zeile['endDate'] ?? 0);
-		$zeitraum = Date::parse('d.m.Y', $beginn).($ende > 0 && $ende !== $beginn ? ' – '.Date::parse('d.m.Y', $ende) : '');
-		$ort = '' === (string) $zeile['ort'] ? '' : ', '.StringUtil::specialchars((string) $zeile['ort']);
+		$angaben = array();
+
+		if ($beginn > 0) {
+			$angaben[] = Date::parse('d.m.Y', $beginn).($ende > 0 && $ende !== $beginn ? ' – '.Date::parse('d.m.Y', $ende) : '');
+		}
+
+		if ('' !== (string) ($zeile['ort'] ?? '')) {
+			$angaben[] = StringUtil::specialchars((string) $zeile['ort']);
+		}
+
+		$klammer = array() === $angaben ? '' : '('.implode(', ', $angaben).') ';
 		$anzahl = count($this->veranstaltungen->teilnehmer((int) $zeile['id']));
 
-		return sprintf('<strong>%s</strong> <span class="tl_gray">(%s%s) · %d Teilnehmer</span>', StringUtil::specialchars((string) $zeile['name']), $zeitraum, $ort, $anzahl);
+		return sprintf('<strong>%s</strong> <span class="tl_gray">%s· %d Teilnehmer</span>', StringUtil::specialchars((string) $zeile['name']), $klammer, $anzahl);
 	}
 }

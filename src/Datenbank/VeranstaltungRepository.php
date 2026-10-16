@@ -40,11 +40,17 @@ class VeranstaltungRepository
 	/**
 	 * Liefert alle Veranstaltungen, die jüngste zuerst.
 	 *
+	 * Unfertige Entwürfe ohne Beginn fehlen: „Neu“ legt den Datensatz sofort
+	 * an, und verlässt der Prüfer die Maske ohne Speichern, bleibt er liegen
+	 * (Contao 4.13 räumt ihn nur über „Zurück“ ab). In der Auswahl der
+	 * Übersicht stand er im Prüfstand 4.13 als „(01.01.1970)“. Gespeicherte
+	 * Veranstaltungen haben immer einen Beginn (Pflichtfeld).
+	 *
 	 * @return list<array<string, mixed>> Zeilen aus tl_kinderschutz_veranstaltung
 	 */
 	public function alle(): array
 	{
-		return $this->db->fetchAllAssociative('SELECT * FROM tl_kinderschutz_veranstaltung ORDER BY startDate DESC, id DESC');
+		return $this->db->fetchAllAssociative('SELECT * FROM tl_kinderschutz_veranstaltung WHERE startDate IS NOT NULL ORDER BY startDate DESC, id DESC');
 	}
 
 	/**

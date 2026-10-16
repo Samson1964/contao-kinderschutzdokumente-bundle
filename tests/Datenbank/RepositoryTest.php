@@ -426,6 +426,23 @@ class RepositoryTest extends TestCase
 	}
 
 	/**
+	 * Unfertige Entwürfe fehlen in der Liste aller Veranstaltungen.
+	 *
+	 * „Neu“ legt den Datensatz sofort an, ohne Beginn und mit tstamp 0.
+	 * Verlässt der Prüfer die Maske ohne Speichern und ohne „Zurück“, bleibt
+	 * er liegen (Contao 4.13 räumt ihn nur über „Zurück“ ab). Im Prüfstand
+	 * 4.13 erschien er in der Auswahl der Übersicht als „(01.01.1970)“.
+	 */
+	public function testAlleOhneUnfertigeEntwuerfe(): void
+	{
+		$repo = new VeranstaltungRepository($this->db);
+		Testdatenbank::veranstaltung($this->db, 'JWM', '2026-11-02');
+		$this->db->insert('tl_kinderschutz_veranstaltung', array('tstamp' => 0, 'name' => '', 'startDate' => null));
+
+		$this->assertSame(array('JWM'), array_column($repo->alle(), 'name'));
+	}
+
+	/**
 	 * Wählbar sind nur offene, nicht beendete Veranstaltungen; laufende zählen noch.
 	 *
 	 * Die Liste ist nach Beginn aufsteigend sortiert, nicht nach Anlegereihenfolge:
