@@ -33,8 +33,9 @@ $GLOBALS['TL_DCA']['tl_kinderschutz_antrag'] = array
 	(
 		'dataContainer' => DC_Table::class,
 		'notCopyable'   => true,
-		// Ohne pid und sorting gibt es nichts zu verschieben; eine
-		// nachgebaute „act=cut“-Adresse endete sonst mit HTTP 500
+		// Ohne pid und sorting gibt es nichts zu verschieben. Die Sperre
+		// mit 403 setzt Sicherheit\Verschiebesperre im onload; notSortable
+		// allein ergäbe in 4.13 HTTP 500 und blendet hier nur Knöpfe aus
 		'notSortable'   => true,
 		'permissions'   => array(),
 		'sql'           => array
@@ -58,9 +59,9 @@ $GLOBALS['TL_DCA']['tl_kinderschutz_antrag'] = array
 			'flag'        => DataContainer::SORT_DESC,
 			'panelLayout' => 'filter;search,limit',
 			// Nicht gespeicherte Entwürfe aus „Mitglied freischalten“
-			// (tstamp 0) ausblenden: Contao 5.7 löscht sie nur beim
-			// Verlassen über „Zurück“, sonst stünden sie als „Mitglied
-			// gelöscht (#0)“ in der Liste. 4.13 räumt sie selbst ab.
+			// (tstamp 0) ausblenden: Contao 4.13 und 5.7 löschen sie nur
+			// beim Verlassen über „Zurück“, sonst stünden sie als „Mitglied
+			// gelöscht (#0)“ in der Liste. Der Filter blendet sie nur aus.
 			'filter'      => array(array('tstamp>?', 0)),
 		),
 		'label' => array

@@ -107,6 +107,36 @@ class AntragListenerTest extends TestCase
 	}
 
 	/**
+	 * Verschieben ist gesperrt, auch über das Einfügen nach dem Ausschneiden.
+	 *
+	 * „notSortable“ allein ergäbe in Contao 4.13 HTTP 500 statt 403.
+	 *
+	 * @dataProvider verschiebeaktionen
+	 *
+	 * @param string      $act  Die Aktion
+	 * @param string|null $modus Wert von „mode“
+	 */
+	public function testVerschiebenGesperrt(string $act, ?string $modus): void
+	{
+		$this->expectException(AccessDeniedException::class);
+		$this->listener(array('act' => $act) + (null === $modus ? array() : array('mode' => $modus)))->beimLaden($this->dc(3));
+	}
+
+	/**
+	 * Die gesperrten Verschiebeaktionen.
+	 *
+	 * @return array<string, array{0: string, 1: string|null}>
+	 */
+	public static function verschiebeaktionen(): array
+	{
+		return array(
+			'Ausschneiden'                 => array('cut', null),
+			'Mehrere ausschneiden'         => array('cutAll', null),
+			'Einfügen nach Ausschneiden' => array('paste', 'cut'),
+		);
+	}
+
+	/**
 	 * Ein frisch angelegter Datensatz bekommt die Palette „direkt“.
 	 */
 	public function testNeuerDatensatzBekommtDiePaletteDirekt(): void
@@ -319,7 +349,8 @@ class AntragListenerTest extends TestCase
 
 		$act = $ersatz['act'] ?? 'edit';
 		$stapel = new RequestStack();
-		$stapel->push(new Request('' === $act ? array() : array('act' => $act), $ersatz['post'] ?? array()));
+		$abfrage = ('' === $act ? array() : array('act' => $act)) + (isset($ersatz['mode']) ? array('mode' => $ersatz['mode']) : array());
+		$stapel->push(new Request($abfrage, $ersatz['post'] ?? array()));
 
 		return new AntragListener(
 			$ersatz['zugang'] ?? $this->createMock(Zugang::class),

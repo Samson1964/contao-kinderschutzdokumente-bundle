@@ -13,10 +13,12 @@ namespace Schachbulle\ContaoKinderschutzdokumenteBundle\EventListener\DataContai
 
 use Contao\CoreBundle\DependencyInjection\Attribute\AsCallback;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Zugang;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\Sicherheit\Verschiebesperre;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
  * Sperrt die Bearbeitungsmasken der Dokumentarten, Veranstaltungen und
- * Teilnahmen für alle ohne Prüferfreigabe.
+ * Teilnahmen für alle ohne Prüferfreigabe und das Verschieben für alle.
  *
  * tl_kinderschutz prüft im NachweisListener selbst, weil dessen onload noch
  * mehr zu tun hat. Ein onload_callback läuft nur, wenn Contao für die
@@ -26,16 +28,24 @@ use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Zugang;
 class ZugangListener
 {
 	/**
-	 * @param Zugang $zugang Die Zugangsprüfung
+	 * Nimmt die Zugangsprüfung und die Anfrage entgegen.
+	 *
+	 * @param Zugang       $zugang       Die Zugangsprüfung
+	 * @param RequestStack $requestStack Liefert die Aktion der Anfrage für die Verschiebesperre
 	 */
-	public function __construct(private readonly Zugang $zugang)
-	{
+	public function __construct(
+		private readonly Zugang $zugang,
+		private readonly RequestStack $requestStack,
+	) {
 	}
 
 	/**
-	 * Bricht für Unberechtigte mit „Zugriff verweigert“ ab.
+	 * Bricht für Unberechtigte und beim Verschieben mit „Zugriff verweigert“ ab.
 	 *
-	 * @throws \Contao\CoreBundle\Exception\AccessDeniedException Ohne Berechtigung
+	 * Verschieben (cut, cutAll, paste mit mode=cut) sperrt Verschiebesperre;
+	 * „notSortable“ in der DCA allein ergäbe in Contao 4.13 HTTP 500 statt 403.
+	 *
+	 * @throws \Contao\CoreBundle\Exception\AccessDeniedException Ohne Berechtigung oder beim Verschieben
 	 */
 	#[AsCallback(table: 'tl_kinderschutz_dokumentart', target: 'config.onload')]
 	#[AsCallback(table: 'tl_kinderschutz_veranstaltung', target: 'config.onload')]
@@ -43,5 +53,6 @@ class ZugangListener
 	public function __invoke(): void
 	{
 		$this->zugang->verlange();
+		Verschiebesperre::pruefe($this->requestStack->getCurrentRequest());
 	}
 }

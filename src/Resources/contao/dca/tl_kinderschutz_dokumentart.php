@@ -27,8 +27,9 @@ $GLOBALS['TL_DCA']['tl_kinderschutz_dokumentart'] = array
 	(
 		'dataContainer'    => DC_Table::class,
 		'enableVersioning' => true,
-		// Ohne pid und sorting gibt es nichts zu verschieben; eine
-		// nachgebaute „act=cut“-Adresse endete sonst mit HTTP 500
+		// Ohne pid und sorting gibt es nichts zu verschieben. Die Sperre
+		// mit 403 setzt Sicherheit\Verschiebesperre im onload; notSortable
+		// allein ergäbe in 4.13 HTTP 500 und blendet hier nur Knöpfe aus
 		'notSortable'      => true,
 		'permissions'      => array(),
 		'sql'              => array

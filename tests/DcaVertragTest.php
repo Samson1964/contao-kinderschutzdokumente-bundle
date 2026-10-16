@@ -115,11 +115,11 @@ class DcaVertragTest extends TestCase
 	 * Die Antragsliste blendet nicht gespeicherte Entwürfe aus.
 	 *
 	 * „Mitglied freischalten“ legt über DC_Table einen Datensatz mit
-	 * tstamp 0 an. Contao 5.7 löscht ihn nur, wenn die Maske über „Zurück“
-	 * verlassen wird (Parameter „revise“); wer über das Menü weggeht, lässt
-	 * ihn stehen. Im Prüfstand 5.7 erschien er dann in der Liste unter „-“
-	 * als „Mitglied gelöscht (#0) (–)“. Contao 4.13 räumt solche Datensätze
-	 * beim nächsten Listenaufruf selbst ab; der Filter schadet dort nicht.
+	 * tstamp 0 an. Contao 4.13 und 5.7 löschen ihn nur, wenn die Maske über
+	 * „Zurück“ verlassen wird (Parameter „revise“); wer über das Menü weggeht,
+	 * lässt ihn stehen. Im Prüfstand 5.7 erschien er dann in der Liste unter
+	 * „-“ als „Mitglied gelöscht (#0) (–)“. Der Filter blendet solche
+	 * Entwürfe nur aus; in der Tabelle bleiben sie liegen.
 	 */
 	public function testAntragslisteBlendetEntwuerfeAus(): void
 	{
@@ -129,13 +129,17 @@ class DcaVertragTest extends TestCase
 	}
 
 	/**
-	 * Die Datensätze der Module lassen sich nicht verschieben.
+	 * Die Datensätze der Module sind als nicht sortierbar gekennzeichnet.
 	 *
 	 * Die Tabellen haben weder „pid“ noch „sorting“. Eine nachgebaute Adresse
 	 * mit „act=cut“ endete im Prüfstand 5.7 deshalb mit HTTP 500 („Set array
 	 * must not be empty for UPDATE queries“, ohne pid „Cannot load record“).
-	 * Mit „notSortable“ weist DC_Table::cut() sie in 4.13 und 5.7 mit einer
-	 * AccessDeniedException (403) ab.
+	 * Mit „notSortable“ weist DC_Table::cut()/cutAll() sie in 5.7 mit einer
+	 * AccessDeniedException (403) ab, in 4.13 aber mit einer
+	 * InternalServerErrorException (500). Die eigentliche Sperre mit 403 in
+	 * beiden Fassungen liegt deshalb in den onload-Callbacks
+	 * (Sicherheit\Verschiebesperre, geprüft in den Listener-Tests); der
+	 * Schalter bleibt als zweite Linie und blendet Verschiebeknöpfe aus.
 	 *
 	 * @dataProvider modultabellen
 	 *

@@ -23,6 +23,7 @@ use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Einstellungen;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Freischaltung;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Zugang;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\EventListener\MeldungListener;
+use Schachbulle\ContaoKinderschutzdokumenteBundle\Sicherheit\Verschiebesperre;
 use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
@@ -71,6 +72,8 @@ class AntragListener
 	 *   bearbeiten“ über den DefaultGlobalOperationsListener; 4.13 kennt den
 	 *   Knopf ohnehin nur, wenn die DCA ihn nennt). Erreichbar wären sie nur
 	 *   noch über eine von Hand gebaute Adresse.
+	 * - Verschieben (cut, cutAll, paste mit mode=cut) sperrt
+	 *   Verschiebesperre mit 403; „notSortable“ allein ergäbe in 4.13 HTTP 500.
 	 * - Ein Datensatz ohne Stand kommt aus „Mitglied freischalten“ und
 	 *   bekommt die Palette „direkt“; ein entschiedener nur den Infokasten.
 	 *   Alle anderen Aktionen (Liste, show, delete) lassen die Paletten in Ruhe.
@@ -80,12 +83,13 @@ class AntragListener
 	 * @param DataContainer|null $dc Der Data Container; null kommt in 4.13 bei
 	 *                               manchen Aufrufen aus der Liste vor
 	 *
-	 * @throws AccessDeniedException Ohne Prüferfreigabe oder bei einer Sammelaktion
+	 * @throws AccessDeniedException Ohne Prüferfreigabe, bei einer Sammelaktion oder beim Verschieben
 	 */
 	#[AsCallback(table: 'tl_kinderschutz_antrag', target: 'config.onload')]
 	public function beimLaden(?DataContainer $dc = null): void
 	{
 		$this->zugang->verlange();
+		Verschiebesperre::pruefe($this->requestStack->getCurrentRequest());
 		$act = (string) $this->requestStack->getCurrentRequest()?->query->get('act');
 
 		if (\in_array($act, self::SAMMELAKTIONEN, true)) {

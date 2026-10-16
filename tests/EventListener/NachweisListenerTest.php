@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 namespace Schachbulle\ContaoKinderschutzdokumenteBundle\Tests\EventListener;
 
+use Contao\CoreBundle\Exception\AccessDeniedException;
 use Contao\CoreBundle\Routing\ScopeMatcher;
 use Contao\DataContainer;
 use Contao\System;
@@ -89,6 +90,37 @@ class NachweisListenerTest extends TestCase
 		$this->listener('kinderschutz_nachweise')->beimLaden();
 
 		$this->assertSame($vorher, $GLOBALS['TL_DCA']['tl_kinderschutz']['list']['sorting']);
+	}
+
+	/**
+	 * Verschieben ist in Nachweisliste und Papierkorb gesperrt.
+	 *
+	 * „notSortable“ allein ergäbe in Contao 4.13 HTTP 500 statt 403.
+	 *
+	 * @dataProvider verschiebeaktionen
+	 *
+	 * @param string               $do      Wert von „do“
+	 * @param array<string, string> $abfrage act und ggf. mode
+	 */
+	public function testVerschiebenGesperrt(string $do, array $abfrage): void
+	{
+		$this->expectException(AccessDeniedException::class);
+		$this->listener($do, false, $abfrage + array('id' => '4'))->beimLaden();
+	}
+
+	/**
+	 * Die gesperrten Verschiebeaktionen.
+	 *
+	 * @return array<string, array{0: string, 1: array<string, string>}>
+	 */
+	public static function verschiebeaktionen(): array
+	{
+		return array(
+			'Ausschneiden'                 => array('kinderschutz_nachweise', array('act' => 'cut')),
+			'Mehrere ausschneiden'         => array('kinderschutz_nachweise', array('act' => 'cutAll')),
+			'Einfügen nach Ausschneiden' => array('kinderschutz_nachweise', array('act' => 'paste', 'mode' => 'cut')),
+			'Papierkorb'                   => array('kinderschutz_papierkorb', array('act' => 'cut')),
+		);
 	}
 
 	/**
