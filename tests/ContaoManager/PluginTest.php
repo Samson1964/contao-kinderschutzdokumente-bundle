@@ -51,4 +51,20 @@ class PluginTest extends TestCase
 		$this->assertSame('\d+', $route->getRequirement('id'));
 		$this->assertSame(array('GET'), $route->getMethods());
 	}
+
+	/**
+	 * Der Abruf einer Datei wird nicht als Rücksprungadresse gemerkt.
+	 *
+	 * Contao 4.13 merkt sich jede erfolgreiche GET-Anfrage im Backend als
+	 * Rücksprungadresse (StoreRefererListener), außer die Route trägt
+	 * „_store_referrer: false“. Die PDF-Vorschau lädt im iframe der Prüfmaske
+	 * nach; ohne den Schalter führte „Speichern und schließen“ aus der
+	 * Übersicht im Prüfstand 4.13 auf die PDF-Datei statt zurück zur Liste.
+	 */
+	public function testDateiRouteWirdNichtAlsRuecksprungGemerkt(): void
+	{
+		$routen = (new Plugin())->getRouteCollection(new LoaderResolver(array(new YamlFileLoader(new FileLocator()))), $this->createMock(KernelInterface::class));
+
+		$this->assertFalse($routen->get('kinderschutz_datei')->getDefault('_store_referrer'));
+	}
 }

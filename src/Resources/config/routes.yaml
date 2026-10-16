@@ -4,11 +4,20 @@
 # Backend-Benutzer leitet Contao zur Anmeldung um. Der Pfad folgt dem in
 # Contao eingestellten Backend-Präfix (4.13 und 5.7: contao.backend.route_prefix).
 # Die Berechtigung prüft der Controller selbst.
+#
+# _store_referrer: false hält die Datei aus Contaos Rücksprungadressen heraus.
+# Contao 4.13 merkt sich jede erfolgreiche GET-Anfrage im Backend
+# (StoreRefererListener); die PDF-Vorschau lädt im iframe der Prüfmaske nach
+# und wäre damit die letzte Adresse. „Speichern und schließen“ führte dann auf
+# die Datei statt zurück zur Liste – im Prüfstand 4.13 beim Prüfen aus der
+# Übersicht, deren Verweise kein „ref“ tragen. Contao 5.7 bestimmt den
+# Rücksprung aus der Adresse und ignoriert den Schalter.
 kinderschutz_datei:
     path: '%contao.backend.route_prefix%/kinderschutz/datei/{id}'
     defaults:
         _controller: Schachbulle\ContaoKinderschutzdokumenteBundle\Controller\DateiController
         _scope: backend
+        _store_referrer: false
     requirements:
         id: '\d+'
     methods: [GET]
