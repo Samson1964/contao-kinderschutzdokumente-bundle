@@ -44,7 +44,10 @@ $GLOBALS['TL_DCA']['tl_kinderschutz_veranstaltung'] = array
 		(
 			'mode'        => DataContainer::MODE_SORTED,
 			'fields'      => array('startDate'),
-			'flag'        => DataContainer::SORT_DESC,
+			// Nach Tag, nicht SORT_DESC: Contao 4.13 formatiert den
+			// Gruppenkopf nur bei Tag-/Monats-/Jahresflags als Datum und
+			// zeigte sonst den rohen Zeitstempel (5.7 hätte beides gekonnt)
+			'flag'        => DataContainer::SORT_DAY_DESC,
 			'panelLayout' => 'search,limit',
 		),
 		'label' => array

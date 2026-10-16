@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 namespace Schachbulle\ContaoKinderschutzdokumenteBundle\Tests;
 
+use Contao\DataContainer;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -158,6 +159,45 @@ class DcaVertragTest extends TestCase
 		$this->assertArrayHasKey('sql', $felder[$feld]);
 		$this->assertMatchesRegularExpression('/\bNULL\b/i', $felder[$feld]['sql']);
 		$this->assertDoesNotMatchRegularExpression('/\bNOT\s+NULL\b/i', $felder[$feld]['sql'], $tabelle.'.'.$feld.' darf nicht „NOT NULL“ sein.');
+	}
+
+	/**
+	 * Listen, die nach einem Zeitstempel sortieren, gruppieren nach Tag.
+	 *
+	 * Über jeder Gruppe gibt Contao den Gruppenwert aus. Contao 5.7
+	 * formatiert ihn für „tstamp“ und Felder mit rgxp „date“/„datim“ selbst
+	 * (ValueFormatter); Contao 4.13 nur bei den Tag-, Monats- und
+	 * Jahresflags (DC_Table::formatCurrentValue()) und zeigt sonst die rohe
+	 * Zahl. Im Prüfstand 4.13 standen so „1792125474“ über den Nachweisen und
+	 * „1794697200“ über den Veranstaltungen.
+	 *
+	 * @dataProvider zeitlisten
+	 *
+	 * @param string $tabelle Name der Tabelle
+	 * @param string $feld    Das Sortierfeld mit Zeitstempel
+	 */
+	public function testZeitlistenGruppierenNachTag(string $tabelle, string $feld): void
+	{
+		$sortierung = $this->ladeDca($tabelle)['list']['sorting'];
+
+		$this->assertSame(array($feld), $sortierung['fields']);
+		$this->assertContains($sortierung['flag'] ?? null, array(DataContainer::SORT_DAY_ASC, DataContainer::SORT_DAY_DESC), $tabelle.': Die Liste nach „'.$feld.'“ braucht ein Tagesflag, sonst zeigt 4.13 Zeitstempel als Gruppenköpfe.');
+	}
+
+	/**
+	 * Die Listen, die nach einem Zeitstempel sortieren.
+	 *
+	 * Die Papierkorb-Ansicht stellt der NachweisListener zur Laufzeit ein;
+	 * sie prüft der NachweisListenerTest.
+	 *
+	 * @return array<string, array{0: string, 1: string}>
+	 */
+	public function zeitlisten(): array
+	{
+		return array(
+			'Nachweise'       => array('tl_kinderschutz', 'tstamp'),
+			'Veranstaltungen' => array('tl_kinderschutz_veranstaltung', 'startDate'),
+		);
 	}
 
 	/**
