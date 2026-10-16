@@ -107,6 +107,14 @@ class Einstellungen
 	 * Mailtext verlöre so alle Zeilenumbrüche. Als JSON-Zeichenkette stehen
 	 * die Umbrüche als „\n“ in einer Zeile und überstehen das.
 	 *
+	 * Config::escape() fasst allerdings mehrere Leerzeichen innerhalb einer
+	 * Zeile weiterhin zu einem zusammen; das verpackte JSON schützt nur die
+	 * Zeilenumbrüche (und Tabulatoren), nicht die Zwischenräume.
+	 *
+	 * Ungültiges UTF-8 im Text wird durch U+FFFD ersetzt. Ohne das lieferte
+	 * json_encode() false, und aus dem Text würde stillschweigend ein leerer,
+	 * also „Standardtext“.
+	 *
 	 * @param mixed $text Der Text aus dem Eingabefeld
 	 *
 	 * @return string JSON-Zeichenkette, oder leer für einen leeren Text
@@ -115,15 +123,20 @@ class Einstellungen
 	{
 		$text = str_replace(array("\r\n", "\r"), "\n", (string) $text);
 
-		return '' === trim($text) ? '' : (string) json_encode($text, JSON_UNESCAPED_UNICODE);
+		return '' === trim($text) ? '' : (string) json_encode($text, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
 	}
 
 	/**
 	 * Entpackt einen gespeicherten Mailtext.
 	 *
-	 * Contao speichert Eingaben teils mit Entitäten („<“ als „&#60;“), auch
-	 * innerhalb der JSON-Zeichenkette; deshalb erst entkodieren, dann
-	 * entpacken. Ein Wert, der kein JSON ist, kommt entkodiert zurück.
+	 * Contao kodiert Eingaben je nach Feld vollständig (Anführungszeichen als
+	 * „&#34;“, Backslash als „&#92;“, „<“ als „&#60;“), und diese Entitäten
+	 * stehen dann in der JSON-Zeichenkette. Deshalb wird zuerst das JSON
+	 * gelesen und erst danach der Text entkodiert: Umgekehrt stünde nach dem
+	 * Entkodieren ein Anführungszeichen oder Backslash mitten in der
+	 * Zeichenkette, das JSON wäre ungültig, und der Text käme mit äußeren
+	 * Anführungszeichen und wörtlichem „\n“ zurück. Ein Wert, der kein JSON
+	 * ist (etwa ein von Hand eingetragener Klartext), wird nur entkodiert.
 	 *
 	 * @param mixed $gespeichert Wert aus der localconfig
 	 *
@@ -135,10 +148,9 @@ class Einstellungen
 			return '';
 		}
 
-		$roh = html_entity_decode($gespeichert, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-		$text = json_decode($roh);
+		$text = json_decode($gespeichert);
 
-		return is_string($text) ? $text : $roh;
+		return html_entity_decode(is_string($text) ? $text : $gespeichert, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 	}
 
 	/**

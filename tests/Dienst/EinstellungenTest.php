@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 namespace Schachbulle\ContaoKinderschutzdokumenteBundle\Tests\Dienst;
 
+use Contao\Config;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Einstellungen;
 
 /**
@@ -98,5 +99,64 @@ class EinstellungenTest extends Testhilfen
 		$this->assertSame('', Einstellungen::verpacke("  \n "));
 		$this->assertSame('', Einstellungen::entpacke(null));
 		$this->assertSame('alter Text ohne JSON', Einstellungen::entpacke('alter Text ohne JSON'));
+	}
+
+	/**
+	 * Die echte Kette von der Eingabe bis zum Lesen übersteht Anführungszeichen,
+	 * Backslash, „<“, Umlaute und Zeilenumbrüche.
+	 *
+	 * Contao kodiert Eingaben je nach Feld vollständig (das Anführungszeichen
+	 * als „&#34;“, der Backslash als „&#92;“, „<“ als „&#60;“). Der kodierte
+	 * Text wird verpackt, von Config::escape() zum PHP-Literal der localconfig
+	 * gemacht, von PHP eingelesen und schließlich entpackt. Würde entpacke()
+	 * schon vor dem Einlesen des JSON die Entitäten entkodieren, stünde ein
+	 * Anführungszeichen mitten in der JSON-Zeichenkette, und der Text käme
+	 * kaputt zurück.
+	 */
+	public function testKetteBisInDieLocalconfig(): void
+	{
+		$eingabe = "Hallo {name},\r\n\r\n&#34;Zitat&#34; mit &#92; und &#60;b&#62;fett&#60;/b&#62;\r\nÄÖÜ äöü ß „Grund“: {grund}";
+
+		$literal = $this->ueberConfigEscape(Einstellungen::verpacke($eingabe));
+
+		$this->assertSame(
+			"Hallo {name},\n\n\"Zitat\" mit \\ und <b>fett</b>\nÄÖÜ äöü ß „Grund“: {grund}",
+			Einstellungen::entpacke(eval('return '.$literal.';'))
+		);
+	}
+
+	/**
+	 * Ungültiges UTF-8 ergibt keinen stillschweigend leeren Text.
+	 *
+	 * json_encode() ohne Ersatzzeichen lieferte false und damit eine leere
+	 * Zeichenkette; die Vorlage wäre unbemerkt verloren. Das ungültige Byte
+	 * wird durch U+FFFD ersetzt.
+	 */
+	public function testVerpackenErsetztUngueltigesUtf8(): void
+	{
+		$gespeichert = Einstellungen::verpacke("Ab\xFFc");
+
+		$this->assertNotSame('', $gespeichert);
+		$this->assertSame("Ab\u{FFFD}c", Einstellungen::entpacke($gespeichert));
+	}
+
+	/**
+	 * Lässt einen Wert durch Contaos Config::escape() laufen.
+	 *
+	 * escape() ist geschützt und gehört zu einer Singleton-Klasse, deren
+	 * Konstruktor den Container verlangt. Beides wird umgangen: Die Instanz
+	 * entsteht ohne Konstruktor, der Aufruf geht über Reflection (ab PHP 8.1
+	 * ohne setAccessible()). So prüft der Test genau den Weg, den
+	 * Config::persist() beim Schreiben der localconfig nimmt.
+	 *
+	 * @param string $wert Der zu speichernde Wert
+	 *
+	 * @return string Das PHP-Literal, wie es in der localconfig steht
+	 */
+	private function ueberConfigEscape(string $wert): string
+	{
+		$config = (new \ReflectionClass(Config::class))->newInstanceWithoutConstructor();
+
+		return (string) (new \ReflectionMethod(Config::class, 'escape'))->invoke($config, $wert);
 	}
 }
