@@ -37,6 +37,10 @@ class Freischaltung
 	public const WOFUER_MAX = 500;
 
 	/**
+	 * Übernimmt die Repositories und Dienste, die Antrag, Freischaltung und
+	 * Ablehnung brauchen; der Konstruktor selbst greift weder auf die
+	 * Datenbank zu noch verschickt er etwas.
+	 *
 	 * @param AntragRepository        $antraege         Die Anträge
 	 * @param PersonenRepository      $personen         Mitglieder, Gruppen, Prüferadressen
 	 * @param VeranstaltungRepository $veranstaltungen  Wählbare Veranstaltungen und Anmeldung

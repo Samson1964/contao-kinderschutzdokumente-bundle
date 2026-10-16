@@ -29,6 +29,10 @@ class AntragRepository
 	public const ABGELEHNT = 'abgelehnt';
 
 	/**
+	 * Merkt sich die Datenbankverbindung für alle Abfragen auf
+	 * tl_kinderschutz_antrag; eine Verbindung wird erst bei der ersten
+	 * Abfrage aufgebaut.
+	 *
 	 * @param Connection $db Die Datenbankverbindung von Contao
 	 */
 	public function __construct(private readonly Connection $db)
