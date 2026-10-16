@@ -201,8 +201,9 @@ und Tabellenrechte sind für diese Module abgeschaltet; die Freigabe allein gen�
   Kinderschutz-Tabellen, Kopieren (`copy`, `copyAll`) von Nachweisen und Anträgen und bei den
   Anträgen alle Sammelaktionen (Auswahl, „Mehrere bearbeiten“, „Überschreiben“, mehrere löschen
   oder kopieren). Die Sperren gelten unabhängig von der Schreibweise (`act=editall`,
-  `act=Cut`) und lesen die Aktion so, wie Contao sie ausführt; enthält `act` oder `mode` andere
-  Zeichen als Buchstaben (etwa Entitäten oder Steuerzeichen), gibt es ebenfalls 403.
+  `act=Cut`) und lesen die Aktion so, wie Contao sie ausführt; enthält `act` andere Zeichen als
+  Buchstaben oder `mode` andere als Buchstaben und Ziffern (etwa Entitäten oder Steuerzeichen),
+  gibt es ebenfalls 403.
 * Die Dateien liefert nur eine eigene Backend-Route aus; jeder Abruf steht im Systemprotokoll.
 
 Das schützt vor Neugier im Backend, nicht vor einem Administrator mit bösen Absichten (er kann
