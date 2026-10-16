@@ -114,6 +114,83 @@ class PersonenRepository
 	}
 
 	/**
+	 * Sagt, ob ein Mitglied existiert und sich anmelden könnte.
+	 *
+	 * @param int $id    ID des Mitglieds
+	 * @param int $jetzt Aktueller Zeitpunkt
+	 *
+	 * @return bool true für ein aktives Mitglied, gleich in welcher Gruppe
+	 */
+	public function istAktivesMitglied(int $id, int $jetzt): bool
+	{
+		$zeile = $this->db->fetchAssociative('SELECT disable, start, stop FROM tl_member WHERE id = ?', array($id));
+
+		return false !== $zeile && $this->istAktiv($zeile, $jetzt);
+	}
+
+	/**
+	 * Nimmt ein Mitglied in eine Gruppe auf.
+	 *
+	 * Die übrigen Gruppen bleiben; gespeichert wird wie bei Contao eine
+	 * serialisierte Liste von Zeichenketten (4.13 und 5.7 gleich).
+	 *
+	 * Seiteneffekt: schreibt tl_member.groups.
+	 *
+	 * @param int $id     ID des Mitglieds
+	 * @param int $gruppe ID der Gruppe
+	 *
+	 * @return bool true, wenn die Gruppe ergänzt wurde; false, wenn das
+	 *              Mitglied fehlt, schon drin ist oder keine Gruppe übergeben wurde
+	 */
+	public function inGruppeAufnehmen(int $id, int $gruppe): bool
+	{
+		$spalte = $this->db->quoteIdentifier('groups');
+		$wert = $this->db->fetchOne('SELECT '.$spalte.' FROM tl_member WHERE id = ?', array($id));
+
+		if (false === $wert || $gruppe <= 0) {
+			return false;
+		}
+
+		$gruppen = $this->gruppenAus($wert);
+
+		if (in_array($gruppe, $gruppen, true)) {
+			return false;
+		}
+
+		$gruppen[] = $gruppe;
+		$this->db->executeStatement('UPDATE tl_member SET '.$spalte.' = ? WHERE id = ?', array(serialize(array_map('strval', $gruppen)), $id));
+
+		return true;
+	}
+
+	/**
+	 * Liefert die aktiven Mitglieder, die nicht in der Gruppe sind.
+	 *
+	 * Für die Auswahl beim direkten Freischalten. Gelesen wird die ganze
+	 * Mitgliedertabelle; bei einigen Tausend Mitgliedern ist das unkritisch.
+	 *
+	 * @param int $gruppe ID der Gruppe der freigeschalteten Mitglieder
+	 * @param int $jetzt  Aktueller Zeitpunkt
+	 *
+	 * @return list<array{id: int, firstname: string, lastname: string, email: string}>
+	 *         Nach Nachname und Vorname sortiert
+	 */
+	public function aktiveOhneGruppe(int $gruppe, int $jetzt): array
+	{
+		$spalte = $this->db->quoteIdentifier('groups');
+		$zeilen = $this->db->fetchAllAssociative('SELECT id, firstname, lastname, email, '.$spalte.' AS gruppen, disable, start, stop FROM tl_member ORDER BY lastname, firstname');
+		$ergebnis = array();
+
+		foreach ($zeilen as $zeile) {
+			if ($this->istAktiv($zeile, $jetzt) && !in_array($gruppe, $this->gruppenAus($zeile['gruppen']), true)) {
+				$ergebnis[] = $this->person($zeile);
+			}
+		}
+
+		return $ergebnis;
+	}
+
+	/**
 	 * Liefert die E-Mail-Adressen aller Prüfer.
 	 *
 	 * @param int $hauptadmin ID des Hauptadmins

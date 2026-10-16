@@ -59,6 +59,7 @@ class DatenbankSchemaTest extends TestCase
 			'Dokumentarten'   => array('tl_kinderschutz_dokumentart'),
 			'Veranstaltungen' => array('tl_kinderschutz_veranstaltung'),
 			'Teilnahmen'      => array('tl_kinderschutz_teilnahme'),
+			'Anträge'         => array('tl_kinderschutz_antrag'),
 		);
 	}
 
