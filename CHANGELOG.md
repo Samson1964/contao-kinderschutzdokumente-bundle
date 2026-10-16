@@ -2,7 +2,7 @@
 
 ## Version 1.2.1 (2026-10-16)
 
-* Fix: Gelöschte Kinderschutz-Datensätze (Nachweise, Anträge, Dokumentarten, Veranstaltungen) sind unter System → Wiederherstellen für alle ohne Prüferfreigabe unsichtbar und gesperrt – auch für Administratoren, denen Contao dort alle Einträge zeigt. Sie fehlen in Liste, Filterauswahl und Suche; „Details“, „Wiederherstellen“ und jede andere Aktion auf einen solchen Eintrag über eine von Hand gebaute Adresse ergeben 403. Hauptadmin und Prüfer sind nicht betroffen. Die Kopien bleiben bis zum Ablauf der Speicherzeit für Undo-Schritte in der Datenbank
+* Fix: Gelöschte Datensätze aus allen Kinderschutz-Tabellen sind unter System → Wiederherstellen für alle ohne Prüferfreigabe unsichtbar und gesperrt – auch für Administratoren, denen Contao dort alle Einträge zeigt. Sie fehlen in Liste, Filterauswahl und Suche; „Details“, „Wiederherstellen“ und jede andere Aktion auf einen solchen Eintrag über eine von Hand gebaute Adresse ergeben 403. Verschieben (`cut`, `cutAll`, `paste`) ist für sie dort ganz gesperrt, sonst ließe sich über eine nachgebaute Anfrage der Besitzer eines verborgenen Eintrags ändern. Hauptadmin und Prüfer sind nicht betroffen. Die Kopien bleiben bis zum Ablauf der Speicherzeit für Undo-Schritte in der Datenbank
 
 ## Version 1.2.0 (2026-10-16)
 
