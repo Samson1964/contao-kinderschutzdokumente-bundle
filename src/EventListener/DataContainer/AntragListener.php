@@ -195,7 +195,12 @@ class AntragListener
 	 * (PersonenRepository::aktiveOhneGruppe() bei Gruppe 0); das Speichern
 	 * meldet dann „keineGruppe“ über mitgliedPruefen().
 	 *
-	 * @return array<int, string> ID → „Nachname, Vorname (Mail)“
+	 * Die Beschriftungen werden maskiert (ohne doppelte Kodierung), weil das
+	 * SelectMenu-Widget Optionstexte unverändert ausgibt: Namen aus einem
+	 * Import, der an Contaos Eingabefilter vorbei in tl_member schreibt,
+	 * könnten sonst HTML in die Maske bringen.
+	 *
+	 * @return array<int, string> ID → „Nachname, Vorname (Mail)“, HTML-maskiert
 	 */
 	#[AsCallback(table: 'tl_kinderschutz_antrag', target: 'fields.member.options')]
 	public function mitgliedOptionen(): array
@@ -203,7 +208,7 @@ class AntragListener
 		$optionen = array();
 
 		foreach ($this->personen->aktiveOhneGruppe($this->einstellungen->gruppe(), time()) as $person) {
-			$optionen[(int) $person['id']] = PersonenRepository::name($person).' ('.$person['email'].')';
+			$optionen[(int) $person['id']] = StringUtil::specialchars(PersonenRepository::name($person).' ('.$person['email'].')');
 		}
 
 		return $optionen;

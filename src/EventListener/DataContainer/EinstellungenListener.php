@@ -14,6 +14,7 @@ namespace Schachbulle\ContaoKinderschutzdokumenteBundle\EventListener\DataContai
 use Contao\Config;
 use Contao\CoreBundle\DependencyInjection\Attribute\AsCallback;
 use Contao\CoreBundle\Framework\ContaoFramework;
+use Contao\StringUtil;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Datenbank\SeitenRepository;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Einstellungen;
 use Schachbulle\ContaoKinderschutzdokumenteBundle\Dienst\Zugang;
@@ -151,8 +152,14 @@ class EinstellungenListener
 	 * wird, etwa weil es über das Seitenlayout eingebunden ist; sonst ginge sie
 	 * beim nächsten Speichern verloren. Eine gelöschte Seite erscheint als „#ID“.
 	 *
-	 * @return array<int, string> Seiten-ID => Beschriftung; leer, wenn es weder
-	 *                            eine passende noch eine gespeicherte Seite gibt
+	 * Die Beschriftungen werden maskiert (ohne doppelte Kodierung, von Contao
+	 * kodiert gespeicherte Titel bleiben also richtig), weil das
+	 * SelectMenu-Widget Optionstexte unverändert ausgibt; ein roh importierter
+	 * Seitentitel könnte sonst HTML in die Maske bringen.
+	 *
+	 * @return array<int, string> Seiten-ID => Beschriftung (HTML-maskiert); leer,
+	 *                            wenn es weder eine passende noch eine
+	 *                            gespeicherte Seite gibt
 	 */
 	#[AsCallback(table: 'tl_kinderschutz_einstellungen', target: 'fields.kinderschutzSeite.options')]
 	public function seitenOptionen(): array
@@ -171,7 +178,7 @@ class EinstellungenListener
 			$optionen[$gespeichert] = (null === $seite ? '#'.$gespeichert : self::seitenName($seite)).' – '.$zusatz;
 		}
 
-		return $optionen;
+		return array_map(static fn (string $text): string => StringUtil::specialchars($text), $optionen);
 	}
 
 	/**

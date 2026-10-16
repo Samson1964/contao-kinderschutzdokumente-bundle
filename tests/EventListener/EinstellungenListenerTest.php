@@ -163,6 +163,26 @@ class EinstellungenListenerTest extends TestCase
 	}
 
 	/**
+	 * Seitentitel kommen maskiert in die Auswahl, auch die gespeicherte Seite; kodierte nicht doppelt.
+	 */
+	public function testSeitenOptionenMaskiert(): void
+	{
+		$GLOBALS['TL_LANG']['tl_kinderschutz_einstellungen']['seiteOhneModul'] = 'ohne Frontend-Modul';
+		$seiten = $this->createMock(SeitenRepository::class);
+		$seiten->method('mitUnterlagenModul')->willReturn(array(
+			array('id' => 7, 'title' => '<img src=x>Unterlagen', 'alias' => 'unterlagen'),
+		));
+		$seiten->method('seite')->with(12)->willReturn(array('id' => 12, 'title' => 'Tom &amp; Jerry "alt"', 'alias' => 'alt'));
+		$einstellungen = $this->createMock(Einstellungen::class);
+		$einstellungen->method('seite')->willReturn(12);
+
+		$this->assertSame(array(
+			7  => '&lt;img src=x&gt;Unterlagen (unterlagen, 7)',
+			12 => 'Tom &amp; Jerry &quot;alt&quot; (alt, 12) – ohne Frontend-Modul',
+		), $this->listener(null, $einstellungen, null, $seiten)->seitenOptionen());
+	}
+
+	/**
 	 * Die gespeicherte Seite bleibt wählbar, auch ohne gefundenes Modul oder gelöscht.
 	 *
 	 * @dataProvider gespeicherteSeiten

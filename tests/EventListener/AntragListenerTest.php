@@ -332,6 +332,21 @@ class AntragListenerTest extends TestCase
 	}
 
 	/**
+	 * Roh importierte Namen kommen maskiert in die Auswahl, bereits kodierte nicht doppelt.
+	 */
+	public function testMitgliedOptionenMaskiert(): void
+	{
+		$einstellungen = $this->createMock(Einstellungen::class);
+		$einstellungen->method('gruppe')->willReturn(7);
+		$personen = $this->createMock(PersonenRepository::class);
+		$personen->method('aktiveOhneGruppe')->willReturn(array(
+			array('id' => 5, 'firstname' => '<b>Carla</b>', 'lastname' => 'Cramer &amp; Co', 'email' => 'c@example.org'),
+		));
+
+		$this->assertSame(array(5 => 'Cramer &amp; Co, &lt;b&gt;Carla&lt;/b&gt; (c@example.org)'), $this->listener(array('personen' => $personen, 'einstellungen' => $einstellungen))->mitgliedOptionen());
+	}
+
+	/**
 	 * Der Infokasten maskiert Eingaben und nennt die Entscheidung samt Vermerk „direkt“.
 	 */
 	public function testInfokastenNenntEntscheidung(): void
