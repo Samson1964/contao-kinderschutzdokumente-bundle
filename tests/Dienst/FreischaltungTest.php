@@ -228,6 +228,45 @@ class FreischaltungTest extends Testhilfen
 	}
 
 	/**
+	 * Ist das Mitglied schon in der Gruppe, geht die Mail trotzdem, und die Gruppe steht nicht doppelt da.
+	 *
+	 * Das kommt vor, wenn ein Administrator das Mitglied inzwischen von Hand
+	 * in die Gruppe gelegt hat, während der Antrag noch offen war.
+	 */
+	public function testFreischaltenEinesMitgliedsAusDerGruppeMailtTrotzdem(): void
+	{
+		$anna = Testdatenbank::mitglied($this->db, 'Anna', 'Adler', array(2, 1));
+		$antrag = (new AntragRepository($this->db))->anlegen($anna, 'Training', array(), $this->jetzt - 3600);
+		$this->db->update('tl_kinderschutz_antrag', array('status' => 'freigeschaltet'), array('id' => $antrag));
+
+		$this->assertTrue($this->dienst()->nachSpeichern($antrag, 7, $this->jetzt));
+
+		$gruppen = unserialize((string) $this->db->fetchOne('SELECT '.$this->db->quoteIdentifier('groups').' FROM tl_member WHERE id = ?', array($anna)));
+		$this->assertSame(array('2', '1'), $gruppen, 'Die Gruppe wird nicht ein zweites Mal eingetragen.');
+		$this->assertCount(1, $this->mails);
+		$this->assertSame('anna.adler@example.org', $this->mails[0]->getTo()[0]->getAddress());
+		$this->assertSame($this->jetzt, (int) (new AntragRepository($this->db))->zeile($antrag)['entschiedenAm']);
+	}
+
+	/**
+	 * Ist das Mitglied eines abgelehnten Antrags inzwischen gelöscht, gilt die Ablehnung ohne Mail.
+	 */
+	public function testAblehnenOhneMitgliedMailtNichtUndMerktDieEntscheidung(): void
+	{
+		$antrag = $this->offenerAntrag();
+		$this->db->update('tl_kinderschutz_antrag', array('status' => 'abgelehnt', 'grund' => 'Zu ungenau.'), array('id' => $antrag));
+		$this->db->delete('tl_member', array('id' => $this->carla));
+
+		$this->assertTrue($this->dienst()->nachSpeichern($antrag, 7, $this->jetzt));
+
+		$this->assertSame(array(), $this->mails);
+		$zeile = (new AntragRepository($this->db))->zeile($antrag);
+		$this->assertSame($this->jetzt, (int) $zeile['entschiedenAm']);
+		$this->assertSame(7, (int) $zeile['entschiedenVon']);
+		$this->assertSame('abgelehnt', $zeile['status']);
+	}
+
+	/**
 	 * Direkt freischalten setzt Stand und Vermerk und schließt offene Anträge.
 	 */
 	public function testDirektFreischaltenSchliesstOffeneAntraege(): void
