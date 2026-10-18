@@ -263,7 +263,7 @@ Grenzen rund um Contaos „Wiederherstellen“ (`tl_undo`):
   Mitglieder erscheinen als „Mitglied gelöscht (#ID)“. Der Antragstext geht in der Mail „Neuer
   Antrag“ an die Prüfer, die Begründung einer Ablehnung wörtlich an das Mitglied.
 
-Die Bedienung für Prüfer beschreibt [docs/bedienung.md](docs/bedienung.md).
+Die Bedienung für Prüfer beschreibt [docs/bedienung.md](docs/bedienung.md), den Ablauf Schritt für Schritt für Mitglieder und Prüfer [docs/arbeitsablauf.md](docs/arbeitsablauf.md).
 
 ## Entwicklung
 

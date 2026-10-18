@@ -6,6 +6,9 @@ freigegeben – die Freigabe setzt der Hauptadmin am Backend-Benutzer. Weitere R
 Prüfer nicht. Hauptadmin und Prüfer haben in diesen Modulen dieselben Möglichkeiten, auch bei
 den Einstellungen und Mailtexten.
 
+Den Ablauf Schritt für Schritt (Mitglied im Frontend, Prüfer im Backend) beschreibt
+[arbeitsablauf.md](arbeitsablauf.md).
+
 **Freigeschaltet** heißt in dieser Anleitung: Das Mitglied ist in der „Gruppe der
 freigeschalteten Mitglieder“ (Kinderschutz → Einstellungen). Nur freigeschaltete Mitglieder
 sehen die Checkliste, stehen in der Übersicht, bekommen Erinnerungen und lassen sich bei
